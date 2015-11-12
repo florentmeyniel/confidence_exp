@@ -5,7 +5,6 @@ win = Screen('OpenWindow', screenid, 0,[512 384 1024 768]);
 %win = Screen('OpenWindow', screenid, 0);   
 
 LoadIdentityClut(win);
-1
 % WaitSecs(1);
 
 % load mygammatable

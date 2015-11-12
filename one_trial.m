@@ -75,13 +75,10 @@ inter_dur = default_arguments(variable_arguments, 'inter_dur', .5);
 timing = struct();
 % left_key = KbName('LeftArrow');
 % right_key = KbName('RightArrow');
-up_key = KbName('UpArrow');
-down_key = KbName('DownArrow');
-conf_very_high = KbName('f');
-conf_high = KbName('d');
-conf_low = KbName('s');
-conf_very_low = KbName('a');
-quit = KbName('q');
+
+% get the key code (define in a script)
+get_key_code
+
 black = BlackIndex(screen_number);
 ResponseDotColor=[.25 .25 .25 1];
 
@@ -248,7 +245,7 @@ start = GetSecs;
 rt_choice = nan;
 key_pressed = false;
 while (GetSecs-start) < 2
-    [~, RT, keyCode] = KbCheck;
+    [tmp, RT, keyCode] = KbCheck;
     if keyCode(quit)
         throw(MException('EXP:Quit', 'User request quit'));
     end
@@ -280,6 +277,7 @@ if ~key_pressed
     rt_conf = nan;
     return
 end
+
 %flash the fix dot for a fraction of second (100ms)
 Screen('DrawDots', window, [xCenter; yCenter], 10, [.75 .75 .75], [], 1);
 vbl = Screen('Flip', window);
@@ -291,7 +289,6 @@ Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
 
 waitframes = .1/ifi;%100ms
 vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
-
 
 %% Get confidence response [a|s|d|f]
 key_pressed = false;
@@ -307,7 +304,7 @@ end
 start = GetSecs;
 rt_conf = nan;
 while (GetSecs-start) < 2
-    [~, RT, keyCode] = KbCheck;
+    [tmp, RT, keyCode] = KbCheck;
     if keyCode(conf_very_high) || keyCode(conf_high) || keyCode(conf_very_low) || keyCode(conf_low)
         key_pressed = true;
         if keyCode(conf_very_high)

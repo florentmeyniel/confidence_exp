@@ -4,15 +4,23 @@
 %
 
 %% Global parameters.
-% rng('shuffle')
+
+
+% Initialize random generators (and use a workaround when rng is not
+% re-cognized, e.g. by Octave)
+try
+    rng('shuffle')
+catch
+    rand('twister',sum(100*clock))
+end
+
 clear all
 eyetracker='n';
 diary('mylog.txt')
 diary on
 
-num_trials = 5; % How many trials?
-% datadir = '/home/nwilming/u/confidence/data/';
-datadir = './';%/home/nwilming/u/confidence/data/';
+num_trials = 2; % How many trials?
+datadir = '../../data';
 
 % QUEST Parameters
 pThreshold = .75; % Performance level and other QUEST parameters
@@ -35,11 +43,16 @@ opts = {'sigma', gabor_dim_pix/6,...
     'xpos', [0],...
     'ypos', [0],...
     'reference_contrast',reference_contrast}; % Position Gabors in the lower hemifield to get activation in the dorsal pathaway
+
+fullscreen = 0; % 1 for fullscreen, 0 for window (debugging)
+bg = 0.5; % background color (range: 0-1)
+gamma_lookup_table = '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/laptop_Screen_maxLum_CalibPhotometer.mat';
+
 try
     %% Ask for some subject details and load old QUEST parameters
     initials = input('Initials? ', 's');
     datadir = fullfile(datadir, initials);
-    [~, ~, ~] = mkdir(datadir);
+    mkdir(datadir);
     quest_file = fullfile(datadir, 'quest_results.mat');
     session_struct = struct('q', [], 'results', [], 'date', datestr(clock));
     results_struct = session_struct;
@@ -49,7 +62,7 @@ try
     repeat_last_session=false;
     if exist(quest_file, 'file') == 2
         if strcmp(input('There is previous data for this subject. Load last QUEST parameters? [y/n] ', 's'), 'y')
-            [~, results_struct, threshold_guess, threshold_guess_sigma] = load_subject(quest_file);
+            [tmp, results_struct, threshold_guess, threshold_guess_sigma] = load_subject(quest_file);
             append_data = true;
             session_number=1+length(results_struct);
 
@@ -94,19 +107,49 @@ try
     
     screenNumber = max(Screen('Screens'));    
     
-    % Open the screen
-    %[window, windowRect] = PsychImaging('OpenWindow', screenNumber, grey, [400, 0, 1600, 900], 32, 2, [], [],  kPsychNeed32BPCFloat);
-     [window, windowRect] = PsychImaging('OpenWindow', screenNumber, 0.5, [], 32, 2, [], [],  kPsychNeed32BPCFloat);
-%    [window, windowRect] = PsychImaging('OpenWindow', screenNumber, 0.5, [], 16, 2, [], [],  kPsychNeed16BPCFloat);    
-   
-
-
-
-    HideCursor(screenNumber)
+    % Open a window for display
+    if isunix && strcmp(getenv('USER'), 'meyniel') % for my Linux HP
+        [w_px, h_px] = Screen('WindowSize', 0);
+        if fullscreen == 1
+            % NB: this is similar to Niklas' code
+            [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [], 32, 2, [], [],  kPsychNeed32BPCFloat);
+            HideCursor
+        else
+            [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [1 1 1+round(0.33*w_px) 1+round(0.5*h_px)]);
+        end
+        w_px = windowRect(3);
+        h_px = windowRect(4);
+    elseif isunix && strcmp(getenv('USER'), 'fm239804') % for Z800 computer
+        [w_px, h_px] = Screen('WindowSize', 0);
+        if fullscreen == 1
+            % NB: this is similar to Niklas' code
+            [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [], 32, 2, [], [],  kPsychNeed32BPCFloat);
+            HideCursor
+        else
+            [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [1 1 1+0.2*w_px 1+0.5*h_px]);
+        end
+        w_px = windowRect(3);
+        h_px = windowRect(4);
+    else
+        [w_px, h_px] = Screen('WindowSize', 0);
+        if fullscreen == 1
+            % NB: this is similar to Niklas' code
+            [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [], 32, 2, [], [],  kPsychNeed32BPCFloat);
+            HideCursor
+        else
+            [windowPtr, windowRect] = PsychImaging('OpenWindow', 0, bg, [1 1 1+0.5*w_px 1+0.5*h_px]);
+        end
+        w_px = windowRect(3);
+        h_px = windowRect(4);
+    end
+    
+    % Make a back up of the current clut table (to restore it at the
+    % end)
+    LoadIdentityClut(window);
+    load(gamma_lookup_table)
+    Screen('LoadNormalizedGammaTable', window, mygammatable);
+    
     Screen('Flip', window);
-
-    load mygammatable
-    Screen('LoadNormalizedGammaTable', window, mygammatable);    
     
     % Make gabortexture
     gabortex = make_gabor(window, 'gabor_dim_pix', gabor_dim_pix);
@@ -158,9 +201,9 @@ try
                 reference_dur=results_last_session(trial).trial_options_struct.reference_dur;
                 inter_dur=results_last_session(trial).trial_options_struct.inter_dur;
             else %if not repeating last session, choose randmly and/or from quest
-                noise_sigma=randsample(noise_sigmas,1);
+                noise_sigma=noise_sigmas(ceil(rand*numel(noise_sigmas))); % workaround for randsample in octave
                 contrast = min(1, max(0, (QuestQuantile(q, 0.5))));
-                side = randsample([1,-1], 1);
+                side = sign(rand-0.5); % workaround for randsample([1n -1], 1) in octave
                 contrast_samples = sample_contrast(contrast, noise_sigma, reference_contrast,side);                
                 gabor_angle=90;%rand*180;                
                 reference_gabor_angle=90;%rand*180;
@@ -193,12 +236,13 @@ try
                 q = QuestUpdate(q, contrast, correct);
             end
             %convert trial_options to matlab structure
-            trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)');            
+            trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)',1); % octave need DIM (=1 here) to be specified)            
             results(trial) = struct('response', response, 'side', side, 'choice_rt', rt_choice, 'correct', correct,...
                'contrast', contrast, 'contrast_samples', contrast_samples,...
                'confidence', confidence, 'confidence_rt', rt_conf,'timings',timing,'trial_options_struct',trial_options_struct);
-        catch ME
-            if (strcmp(ME.identifier,'EXP:Quit'))
+        catch
+            ME = lasterror; % work around for Octave
+            if (strcmp(ME,'EXP:Quit'))
                 break
             else
                 rethrow(ME);
@@ -211,7 +255,8 @@ try
             keyboard
         end
     end
-catch ME
+catch 
+    ME = lasterror; % work around for Octave
 %     if exist('window','var')
 %         LoadIdentityClut(window);
 %     end
@@ -229,9 +274,9 @@ catch ME
     end        
     diary off
 end
-% if exist('window','var')
-%     LoadIdentityClut(window);
-% end
+if exist('window','var')
+    LoadIdentityClut(window);
+end
 %PsychPortAudio('Close');
 WaitSecs(1);
 fprintf('Saving data to %s\n', datadir)
@@ -255,7 +300,7 @@ save(fullfile(datadir, 'quest_results.mat'), 'results_struct')
 % Screen('FillRect', window, 128)
 DrawFormattedText(window, 'Fin del experimento', 'center', 'center' , 0); 
 Screen('flip',window);       
-while ~KbCheck;WaitSecs(0.001);end%espero a que toque una tecla
+WaitSecs(0.5);
 sca
 restore_gamma_table
 
