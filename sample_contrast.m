@@ -1,8 +1,7 @@
-function [small, large] = sample_contrast(contrast, sigma, baseline_contrast)
-large = [0,0];
-small = [0, 1];
-while mean(large) < mean(small)
-    large = randn(1,10)*sigma + contrast + baseline_contrast ;
-    small = randn(1,10)*sigma + baseline_contrast;
+function [samples] = sample_contrast(contrast, sigma, reference_contrast,side)
+samples = -1;
+while mean(samples) < 0
+    samples = randn(1,10)*sigma + contrast ;
 end
+samples = reference_contrast + samples*side;
 end

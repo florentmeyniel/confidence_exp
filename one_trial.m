@@ -48,35 +48,42 @@ function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial
 %  Which is to say that the contrast parameter gives the Michelson contrast
 %  with the current contrastpremult and background settings.
 
-
 %% Process variable input stuff
 sigma = default_arguments(variable_arguments, 'sigma', gabor_dim_pix/6);
-contrast_left = default_arguments(variable_arguments, 'contrast_left', [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]/10.);
-contrast_right = default_arguments(variable_arguments, 'contrast_right', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
+contrast_samples = default_arguments(variable_arguments, 'contrast_samples', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
 num_cycles = default_arguments(variable_arguments, 'num_cycles', 5);
-xpos = default_arguments(variable_arguments, 'xpos', [-10, 10]);
-ypos = default_arguments(variable_arguments, 'ypos', [0, 0]);
+xpos = default_arguments(variable_arguments, 'xpos', [0]);
+ypos = default_arguments(variable_arguments, 'ypos', [0]);
 driftspeed = default_arguments(variable_arguments, 'driftspeed', 1);
-gabor_angle = default_arguments(variable_arguments, 'gabor_angle', 45);
+gabor_angle = default_arguments(variable_arguments, 'gabor_angle', 180);
 ppd = default_arguments(variable_arguments, 'ppd', estimate_pixels_per_degree(screen_number, 60));
 duration = default_arguments(variable_arguments, 'duration', .1);
 baseline_delay = default_arguments(variable_arguments, 'baseline_delay', 0.5);
-decision_delay = default_arguments(variable_arguments, 'decision_delay', 0.25);
-confidence_delay = default_arguments(variable_arguments, 'confidence_delay', 0.5);
+decision_delay = default_arguments(variable_arguments, 'decision_delay', 0.30);
 feedback_delay = default_arguments(variable_arguments, 'feedback_delay', 0.5);
 rest_delay = default_arguments(variable_arguments, 'rest_delay', 0.5);
+eyetracker = default_arguments(variable_arguments, 'eyetracker', 'n');
+
+reference_contrast = default_arguments(variable_arguments, 'reference_contrast', 0.5);
+reference_gabor_angle = default_arguments(variable_arguments, 'reference_gabor_angle', 180);
+reference_dur = default_arguments(variable_arguments, 'reference_dur', .4);
+inter_dur = default_arguments(variable_arguments, 'inter_dur', .5);
+
 
 %% Setting the stage
-beeps = {MakeBeep(150, .25), MakeBeep(350, .25)};
+% beeps = {MakeBeep(150, .25), MakeBeep(350, .25)};
 timing = struct();
-left_key = KbName('LeftArrow');
-right_key = KbName('RightArrow');
+% left_key = KbName('LeftArrow');
+% right_key = KbName('RightArrow');
+up_key = KbName('UpArrow');
+down_key = KbName('DownArrow');
 conf_very_high = KbName('f');
 conf_high = KbName('d');
 conf_low = KbName('s');
 conf_very_low = KbName('a');
 quit = KbName('q');
 black = BlackIndex(screen_number);
+ResponseDotColor=[.25 .25 .25 1];
 
 % Properties of the gabor
 ifi = Screen('GetFlipInterval', window);
@@ -98,7 +105,7 @@ gaborAngles = gabor_angle*ones(1, ngabors);
 propertiesMat = repmat([NaN, freq, sigma, 0, 1, 0, 0, 0],...
     ngabors, 1);
 propertiesMat(:, 1) = 0;
-propertiesMat(:, 4) = [contrast_left(1) contrast_right(1)];
+propertiesMat(:, 4) = [reference_contrast];
 
 
 %% Baseline Delay period
@@ -106,18 +113,68 @@ propertiesMat(:, 4) = [contrast_left(1) contrast_right(1)];
 Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
 vbl = Screen('Flip', window);
 timing.TrialOnset = vbl;
-waitframes = baseline_delay/ifi;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'TrialOnset');
+end
+vbl=WaitSecs(baseline_delay);
+
+%% Reference Period
+
+% Set the right blend function for drawing the gabors
+Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
+%    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+
+% Batch draw all of the Gabors to screen
+Screen('DrawTextures', window, gabortex, [], allRects, reference_gabor_angle - 90,...
+    [], [], [], [], kPsychDontDoRotation, propertiesMat');
+
+% Change the blend function to draw an antialiased fixation point
+% in the centre of the array
+Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+
+%circle mask
+%Screen('DrawDots', window, [xCenter; yCenter], 166, .5, [], 1);
+radius=250/3;
+rect=[xCenter-radius; yCenter-radius;xCenter+radius; yCenter+radius];
+Screen('FillOval', window, 0.5, rect);
+
+% Draw the fixation point
+Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
+
+
+vbl = Screen('Flip', window);
+timing.refOnset = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'refOnset');
+end
+vbl=WaitSecs(reference_dur);
+
+%% intermediate Period 
+% Draw the fixation point
+Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
+
+vbl = Screen('Flip', window);
+timing.interOnset = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'interOnset');
+end
+vbl=WaitSecs(inter_dur);
 
 %% Animation loop
+timing.AnimationOnset = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'AnimationOnset');
+end
 start = nan;
 cnt = 1;
 dynamic = [];
 stimulus_onset = nan;
-while ~((GetSecs - stimulus_onset) >= (length(contrast_left)*duration-1*ifi))
+
+while ~((GetSecs - stimulus_onset) >= (length(contrast_samples)*duration-1*ifi))
     
     % Set the right blend function for drawing the gabors
-    %Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
-    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+    Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
+%    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     
     % Batch draw all of the Gabors to screen
     Screen('DrawTextures', window, gabortex, [], allRects, gaborAngles - 90,...
@@ -127,12 +184,18 @@ while ~((GetSecs - stimulus_onset) >= (length(contrast_left)*duration-1*ifi))
     % in the centre of the array
     Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     
+    %circle mask
+%     Screen('DrawDots', window, [xCenter; yCenter], 500/3, .5, [], 1);
+    radius=250/3;
+    rect=[xCenter-radius; yCenter-radius;xCenter+radius; yCenter+radius];
+    Screen('FillOval', window, 0.5, rect);
+
     % Draw the fixation point
-    Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+    Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
     
     % Flip our drawing to the screen
-    vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
     waitframes = 1;
+    vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);    
     dynamic = [dynamic vbl];
     % Change contrast every 100ms
     elapsed = GetSecs;
@@ -141,26 +204,46 @@ while ~((GetSecs - stimulus_onset) >= (length(contrast_left)*duration-1*ifi))
         start = GetSecs;
     end
     if (elapsed-start) > duration
-        vala = contrast_left(1 + mod(cnt, length(contrast_left)));
-        valb = contrast_right(1 + mod(cnt, length(contrast_right)));
-        propertiesMat(:,4) = [vala valb];
+        val = contrast_samples(1 + mod(cnt, length(contrast_samples)));
+        propertiesMat(:,4) = val;
         start = GetSecs;
         cnt = cnt+1;
     end
     
     % Increment the phase of our Gabors
     propertiesMat(:, 1) =  propertiesMat(:, 1) + degPerFrame;
+    
+%       %to save an image of one patch
+%     if cnt==1
+%         imageArray=Screen('GetImage', window);
+%         assignin('base','imageArray',imageArray)
+%         'Save one image in base'
+%     end
+
+    
 end
 % in the centre of the array
 Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
 timing.animation = dynamic;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'animationEnd');
+end
 
-%%% Get choice
+%% Wait for some time after stimulus, before response
+Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
+WaitSecs(decision_delay);
+
+%%% Get choice [left_arrow|right_arrow]
 % Draw the fixation pointsca
 
-Screen('DrawDots', window, [xCenter; yCenter], 10, [1, 0.25, 0.25, 1 ], [], 1);
-vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+
+Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
+vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
 timing.response_cue = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'response_cue');
+end
 start = GetSecs;
 rt_choice = nan;
 key_pressed = false;
@@ -169,8 +252,8 @@ while (GetSecs-start) < 2
     if keyCode(quit)
         throw(MException('EXP:Quit', 'User request quit'));
     end
-    if keyCode(left_key) || keyCode(right_key)
-        if keyCode(left_key)
+    if keyCode(up_key) || keyCode(down_key)
+        if keyCode(up_key)
             response = 1;
         else
             response = -1;
@@ -185,10 +268,10 @@ while (GetSecs-start) < 2
         break;
     end
 end
-Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
-vbl = Screen('Flip', window);
 if ~key_pressed
-    wait_period = confidence_delay + 1 + feedback_delay + rest_delay;
+    Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+    vbl = Screen('Flip', window);
+    wait_period = 1 + feedback_delay + rest_delay;
     WaitSecs(wait_period);
     correct = nan;
     response = nan;
@@ -197,14 +280,30 @@ if ~key_pressed
     rt_conf = nan;
     return
 end
+%flash the fix dot for a fraction of second (100ms)
+Screen('DrawDots', window, [xCenter; yCenter], 10, [.75 .75 .75], [], 1);
+vbl = Screen('Flip', window);
+%the dot again in the center
+Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
 
-%% Get confidence response
+%draw the correct response
+% Screen('DrawText', window, num2str(correct_location),xCenter+100,yCenter);%[,x] [,y] [,color] [,backgroundColor] [,yPositionIsBaseline] [,swapTextDirection]);
+
+waitframes = .1/ifi;%100ms
+vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+
+
+%% Get confidence response [a|s|d|f]
 key_pressed = false;
 timing.start_confidence_delay = vbl;
-waitframes = confidence_delay/ifi;
-Screen('DrawDots', window, [xCenter; yCenter], 10, [0.25, 1, 0.25, 1 ], [], 1);
-vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
-timing.confidence_cue = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'start_confidence_delay');
+end
+
+% waitframes = confidence_delay/ifi;
+% Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
+% vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+% timing.confidence_cue = vbl;
 start = GetSecs;
 rt_conf = nan;
 while (GetSecs-start) < 2
@@ -224,28 +323,48 @@ while (GetSecs-start) < 2
         break;
     end
 end
-Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
-vbl = Screen('Flip', window);
-
 if ~key_pressed
+    Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+    vbl = Screen('Flip', window);    
     wait_period = 0.5 + feedback_delay + rest_delay;
     WaitSecs(wait_period);
     confidence = nan;
     rt_conf = nan;
     return
 end
+% Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+% vbl = Screen('Flip', window);
+
 
 %% Provide Feedback
-beep = beeps{correct+1};
-PsychPortAudio('FillBuffer', pahandle, repmat(beep, [2,1]));
-timing.feedback_delay_start = vbl;
-Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+% beep = beeps{correct+1};
+% PsychPortAudio('FillBuffer', pahandle, repmat(beep, [2,1]));
+if correct
+    Screen('DrawDots', window, [xCenter; yCenter], 10, [0 .5 0 1], [], 1);
+else
+    Screen('DrawDots', window, [xCenter; yCenter], 10, [1 0 0 1], [], 1);
+end
+vbl = Screen('Flip', window);
+timing.feedback= vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'feedback');
+end
 waitframes = (feedback_delay/ifi) - 2;
-vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
-t1 = PsychPortAudio('Start', pahandle, 1, 0, 1);
-timing.feedback_start = t1;
 
 Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
+vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+timing.feedback_end = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'feedback_end');
+end
+% t1 = PsychPortAudio('Start', pahandle, 1, 0, 1);
+% timing.feedback_start = t1;
+
+%% Rest delay
+Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
 waitframes = rest_delay/ifi;
-vbl = Screen('Flip', window, t1 + (waitframes - 0.5) * ifi);
+vbl = Screen('Flip', window, (waitframes - 0.5) * ifi);
 timing.trial_end = vbl;
+if  strcmp(eyetracker,'y')
+    Eyelink('Message', 'trial_end');
+end
