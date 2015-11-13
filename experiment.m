@@ -24,7 +24,7 @@ datadir = '../../data';
 
 % QUEST Parameters
 pThreshold = .75; % Performance level and other QUEST parameters
-beta = 3.5; 
+beta = 3.5;
 delta = 0.01;
 gamma = 0.15;
 % Parameters for sampling the contrast + contrast noise
@@ -45,8 +45,15 @@ opts = {'sigma', gabor_dim_pix/6,...
     'reference_contrast',reference_contrast}; % Position Gabors in the lower hemifield to get activation in the dorsal pathaway
 
 fullscreen = 0; % 1 for fullscreen, 0 for window (debugging)
+IsfMRI = 0; % 1 to wait for the trigger, 0 to initiate on the keyboard
 bg = 0.5; % background color (range: 0-1)
-gamma_lookup_table = '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/laptop_Screen_maxLum_CalibPhotometer.mat';
+gamma_lookup_table = '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_Screen_maxLum_CalibPhotometer.mat';
+colText                 = 0.8*[1 1 1];      % text color
+
+% Define the IsOctave command if run in Matlab
+try IsOctave
+catch IsOctave = 0;
+end
 
 try
     %% Ask for some subject details and load old QUEST parameters
@@ -65,47 +72,45 @@ try
             [tmp, results_struct, threshold_guess, threshold_guess_sigma] = load_subject(quest_file);
             append_data = true;
             session_number=1+length(results_struct);
-
-            if strcmp(input('Repeat last session? [y/n] ', 's'), 'y')
-                repeat_last_session=1;            
-                results_last_session=results_struct(end).results;
-                num_trials=length(results_last_session);
-                fprintf('Repeating last session, %d trials\n',num_trials)
-            end        
+            
+            % Comment this part to avoid miskate (we don't want repetition
+            % in the fMRI, but leave it in case one wants to change.
+%             do_repeat_last_session = input('Repeat last session? [y/n] ', 's');
+%             if strcmp(do_repeat_last_session, 'y')
+%                 repeat_last_session=1;
+%                 results_last_session=results_struct(end).results;
+%                 num_trials=length(results_last_session);
+%                 fprintf('Repeating last session, %d trials\n',num_trials)
+%             end
         end
     end
     
     fprintf('Session number: %d\n', session_number)
     
-    eye_filename=sprintf('%s_%03d',initials,session_number);    
-    fprintf('Eye_filename: %s\n', eye_filename)    
+    eye_filename=sprintf('%s_%03d',initials,session_number);
+    fprintf('Eye_filename: %s\n', eye_filename)
     
     fprintf('QUEST Parameters\n----------------\nThreshold Guess: %1.4f\nSigma Guess: %1.4f\n', threshold_guess, threshold_guess_sigma)
     if ~strcmp(input('OK? [y/n] ', 's'), 'y')
         throw(MException('EXP:Quit', 'User request quit'));
         
     end
-        
     
-    % Initialize eye   
+    
+    % Initialize eye
     if strcmp(eyetracker,'y')
-        PARAMS      = struct('calBACKGROUND', 128,'calFOREGROUND',0); 
+        PARAMS      = struct('calBACKGROUND', 128,'calFOREGROUND',0);
         edfFile = eyelink_ini(eye_filename,PARAMS);
         sca;
-%         transfiere_imagen_eyetracker;
     end
     
     %% Some Setup
     AssertOpenGL;
-    sca;
     PsychDefaultSetup(2);
-%     InitializePsychSound;
-%     pahandle = PsychPortAudio('Open', [], [], 0);
-    pahandle=nan;
     
     timings = {};
     
-    screenNumber = max(Screen('Screens'));    
+    screenNumber = max(Screen('Screens'));
     
     % Open a window for display
     if isunix && strcmp(getenv('USER'), 'meyniel') % for my Linux HP
@@ -143,6 +148,10 @@ try
         h_px = windowRect(4);
     end
     
+    % get screen center coordinates
+    crossY = 1/2*h_px;
+    crossX = 1/2*w_px;
+    
     % Make a back up of the current clut table (to restore it at the
     % end)
     LoadIdentityClut(window);
@@ -155,7 +164,17 @@ try
     gabortex = make_gabor(window, 'gabor_dim_pix', gabor_dim_pix);
     % Maximum priority level
     topPriorityLevel = MaxPriority(window);
-          
+    
+    % Set font
+    Screen('TextSize', window, 21);
+    Screen('TextFont', window, 'Arial');
+    
+    % Initialize screen BEFORE making texture (otherwise, it does not work...)
+    text = '...';
+    [w, h] = RectSize(Screen('TextBounds', window, text));
+    Screen('DrawText', window, text, round(crossX-w/2), round(crossY-h*3/2), colText);
+    Screen(window,'Flip');
+    
     % Set up QUEST
     q = QuestCreate(threshold_guess, threshold_guess_sigma, pThreshold, beta, delta, gamma);
     q.updatePdf = 1;
@@ -164,29 +183,89 @@ try
     results = struct('response', [], 'side', [], 'choice_rt', [], 'correct', [],...
         'contrast', [], 'contrast_samples', [], ...
         'confidence', [], 'confidence_rt', [],'timings',[],'trial_options_struct',[]);
-        
-    %% Do Experiment
-    for trial = 1:num_trials
-        try
-            %pause every 100 trials
-            if ismember(trial,[100 200 300 400])
-                instrucciones='Pausa:\n\n\nPulse una tecla para continuar';               
-                DrawFormattedText(window,instrucciones, 'center','center',[0 0 0])
-                Screen('Flip', window);  
-                
-                %wait for keypress
-                while ~KbCheck;WaitSecs(0.005);end
-                
-%                 [width, height]=Screen('WindowSize', window);    
-                DrawFormattedText(window,'.', 'center','center',[0 0 0])
-%                 Screen('DrawDots', window, [width/2; height/2], 10, [0 0 0], [], 1);
-                Screen('Flip', window);  
-                
-                %wait for key release
-                while KbCheck;WaitSecs(0.005);end
+    
+    
+    %% ---WAIT START SIGNAL---
+    % ########################
+    exittask = 0;
+    
+    % ready to start screen
+    Screen(window, 'Flip');
+    text = 'PRET';
+    [w, h] = RectSize(Screen('TextBounds', window, text));
+    Screen('DrawText', window, text, ceil(crossX-w/2), ceil(crossY-h/2), colText);
+    Screen(window,'Flip');
+    
+    if IsfMRI
+        % The start signal is the scanner trigger
+        ScanCount = 0;
+        fprintf('\n Waiting for the scanner triggers...')
+        while true
+            [isKeyDown, keyTime, keyCode] = KbCheck;
+            if isKeyDown && keyCode(KbName('ESCAPE')); % press escape to quit the experiment
+                exittask = 1;
+                break
             end
             
-            
+            if isKeyDown && keyCode(KbName(key_scanOnset));
+                % key_scanOnset is sent when the 1st slice of a new volume in
+                % aquiered.
+                ScanCount = ScanCount+1;
+                fprintf('\n dummy scan %d started', ScanCount)
+                if ScanCount == 1
+                    fprintf(' defined at T0')
+                    save_T0 = keyTime;
+                end
+                if ScanCount == (dummy_scans+1)
+                    fprintf('\n ready-to-analyse fMRI scan starting now!\n')
+                    break
+                end
+                
+                % wait for key up
+                while isKeyDown
+                    isKeyDown = KbCheck;
+                end
+            end
+        end
+        if exittask==1;
+            sca
+            if fullscreen == 1; ShowCursor; end
+            break
+        end
+    else
+        % The start signal is the User 'space' key press.
+        fprintf('\n Waiting for the space bar key press...')
+        while true
+            [isKeyDown, keyTime, keyCode] = KbCheck;
+            if isKeyDown && keyCode(KbName('ESCAPE')); % press escape to quit the experiment
+                exittask = 1;
+                break
+            end
+            if isKeyDown && keyCode(KbName('space'));
+                fprintf('\n Starting stimulation...\n')
+                break
+            end
+        end
+        if exittask==1;
+            sca
+            if fullscreen == 1; ShowCursor; end
+            break
+        end
+    end
+    
+    %% --- GO SIGNAL FOR THE SUBJECT ---
+    % #################################
+    text = 'C EST PARTI!';
+    [w, h] = RectSize(Screen('TextBounds', window, text));
+    Screen('DrawText', window, text, ceil(crossX-w/2), ceil(crossY-h/2), colText);
+    Screen(window,'Flip');
+    WaitSecs(0.8);
+
+    %% 
+    % #################################
+    
+    for trial = 1:num_trials
+        try
             % Sample contrasts.
             if repeat_last_session %if repeating last session, take all these values from last session
                 noise_sigma=results_last_session(trial).trial_options_struct.noise_sigma;
@@ -204,8 +283,8 @@ try
                 noise_sigma=noise_sigmas(ceil(rand*numel(noise_sigmas))); % workaround for randsample in octave
                 contrast = min(1, max(0, (QuestQuantile(q, 0.5))));
                 side = sign(rand-0.5); % workaround for randsample([1n -1], 1) in octave
-                contrast_samples = sample_contrast(contrast, noise_sigma, reference_contrast,side);                
-                gabor_angle=90;%rand*180;                
+                contrast_samples = sample_contrast(contrast, noise_sigma, reference_contrast,side);
+                gabor_angle=90;%rand*180;
                 reference_gabor_angle=90;%rand*180;
                 baseline_delay=1 + rand*0.5;
                 confidence_delay=0.5 + rand*1;
@@ -219,7 +298,7 @@ try
                 'contrast_samples',contrast_samples,...
                 'gabor_angle', gabor_angle      ,...
                 'reference_gabor_angle', reference_gabor_angle      ,...
-                'baseline_delay', baseline_delay,...        
+                'baseline_delay', baseline_delay,...
                 'confidence_delay', confidence_delay, ...
                 'feedback_delay', feedback_delay,...
                 'reference_dur', reference_dur, ...
@@ -229,17 +308,17 @@ try
                 }];
             
             [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect,...
-                screenNumber, side, gabortex, gabor_dim_pix, pahandle, trial_options);
+                screenNumber, side, gabortex, gabor_dim_pix, trial_options);
             
             timings{trial} = timing;
             if ~isnan(correct)
                 q = QuestUpdate(q, contrast, correct);
             end
             %convert trial_options to matlab structure
-            trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)',1); % octave need DIM (=1 here) to be specified)            
+            trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)',1); % octave need DIM (=1 here) to be specified)
             results(trial) = struct('response', response, 'side', side, 'choice_rt', rt_choice, 'correct', correct,...
-               'contrast', contrast, 'contrast_samples', contrast_samples,...
-               'confidence', confidence, 'confidence_rt', rt_conf,'timings',timing,'trial_options_struct',trial_options_struct);
+                'contrast', contrast, 'contrast_samples', contrast_samples,...
+                'confidence', confidence, 'confidence_rt', rt_conf,'timings',timing,'trial_options_struct',trial_options_struct);
         catch
             ME = lasterror; % work around for Octave
             if (strcmp(ME,'EXP:Quit'))
@@ -247,59 +326,56 @@ try
             else
                 rethrow(ME);
             end
-%             if exist('window','var')
-%                 LoadIdentityClut(window);
-%             end
-            sca            
+            sca
             diary off
             keyboard
         end
     end
-catch 
+catch
     ME = lasterror; % work around for Octave
-%     if exist('window','var')
-%         LoadIdentityClut(window);
-%     end
     if (strcmp(ME.identifier,'EXP:Quit'))
         return
     else
         rethrow(ME);
     end
-    %PsychPortAudio('Close');
+    
     disp(getReport(ME,'extended'));
     if  strcmp(eyetracker,'y')
         disp('Receiving eyetracker data')
         eyelink_end;
-%         eyelink_receive_file(eye_filename);
-    end        
+    end
     diary off
 end
-if exist('window','var')
-    LoadIdentityClut(window);
-end
-%PsychPortAudio('Close');
+
+% Save data
 WaitSecs(1);
 fprintf('Saving data to %s\n', datadir)
 session_struct.q = q;
 session_struct.results = results;
-% session_struct.results = struct2table(results);
-disp('Saving session results')
-filename=sprintf('session_results_%s.mat',datestr(clock, 'yyyy-mm-dd_HH-MM-SS.FFF'));
-save(fullfile(datadir, filename), 'session_struct')
+filename = sprintf('session_results_sess_%d_%s.mat', session_number, datestr(clock, 'yyyy-mm-dd_HH-MM-SS'));
+if IsOctave
+    save('-mat7-binary', fullfile(datadir, filename))
+else
+    save(fullfile(datadir, filename))
+end
 if ~append_data
     results_struct = session_struct;
 else
     disp('Trying to append')
-    results_struct(length(results_struct)+1) = session_struct;    
+    results_struct(length(results_struct)+1) = session_struct;
 end
 disp('Saving complete results')
-save(fullfile(datadir, 'quest_results.mat'), 'results_struct')
-% writetable(session_struct.results, fullfile(datadir, sprintf('%s_%s_results.csv', initials, datestr(clock))));
+if IsOctave
+    save('-mat7-binary', fullfile(datadir, 'quest_results.mat'), 'results_struct')
+else
+    save(fullfile(datadir, 'quest_results.mat'), 'results_struct')
+end
 
-%fin del experimento
-% Screen('FillRect', window, 128)
-DrawFormattedText(window, 'Fin del experimento', 'center', 'center' , 0); 
-Screen('flip',window);       
+% Close screen
+text = 'Fin de l''experience';
+[w, h] = RectSize(Screen('TextBounds', window, text));
+Screen('DrawText', window, text, round(crossX-w/2), round(crossY-h*3/2), colText);
+Screen(window,'Flip');
 WaitSecs(0.5);
 sca
 restore_gamma_table
@@ -307,7 +383,6 @@ restore_gamma_table
 if  strcmp(eyetracker,'y')
     disp('Receiving eyetracker data')
     eyelink_end;
-%     eyelink_receive_file(eye_filename);
 end
 disp('Done!')
 diary off

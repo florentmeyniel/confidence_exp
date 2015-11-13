@@ -1,5 +1,5 @@
-function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gabor_dim_pix, pahandle, variable_arguments)
-%% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gaborDimPix, pahandle, variable_arguments)
+function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gabor_dim_pix, variable_arguments)
+%% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gaborDimPix, variable_arguments)
 %
 % Presents two Gabor patches that vary in contrast over time and then asks
 % for which one of the two had higher contrast and the confidence of the
@@ -14,7 +14,6 @@ function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial
 % correct_location : -1 if correct is right, 1 if left
 % gabortex : the gabor texture to draw
 % gabor_dim_pix : size of the gabor grating in px.
-% pahandle : audio handle
 %
 % Variable Arguments
 % ------------------
@@ -334,8 +333,7 @@ end
 
 
 %% Provide Feedback
-% beep = beeps{correct+1};
-% PsychPortAudio('FillBuffer', pahandle, repmat(beep, [2,1]));
+
 if correct
     Screen('DrawDots', window, [xCenter; yCenter], 10, [0 .5 0 1], [], 1);
 else
@@ -354,7 +352,7 @@ timing.feedback_end = vbl;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'feedback_end');
 end
-% t1 = PsychPortAudio('Start', pahandle, 1, 0, 1);
+
 % timing.feedback_start = t1;
 
 %% Rest delay
