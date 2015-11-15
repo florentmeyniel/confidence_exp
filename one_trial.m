@@ -1,5 +1,5 @@
-function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gabor_dim_pix, variable_arguments)
-%% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, correct_location, gabortex, gaborDimPix, variable_arguments)
+function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gabor_dim_pix, variable_arguments)
+%% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gaborDimPix, variable_arguments)
 %
 % Presents two Gabor patches that vary in contrast over time and then asks
 % for which one of the two had higher contrast and the confidence of the
@@ -11,7 +11,7 @@ function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial
 % window : window handle to draw into
 % windowRect : dimension of the window
 % screen_number : which screen to use
-% correct_location : -1 if correct is right, 1 if left
+% is_left_gabor_max : 1 if correct (max contrast) is left, 0 if right
 % gabortex : the gabor texture to draw
 % gabor_dim_pix : size of the gabor grating in px.
 %
@@ -48,14 +48,16 @@ function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial
 %  with the current contrastpremult and background settings.
 
 %% Process variable input stuff
+IsfMRI = default_arguments(variable_arguments, 'IsfMRI', 0); 
+x_excentricity = default_arguments(variable_arguments, 'x_excentricity', nan); 
+
 sigma = default_arguments(variable_arguments, 'sigma', gabor_dim_pix/6);
 contrast_samples = default_arguments(variable_arguments, 'contrast_samples', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
 num_cycles = default_arguments(variable_arguments, 'num_cycles', 5);
-xpos = default_arguments(variable_arguments, 'xpos', [0]);
 ypos = default_arguments(variable_arguments, 'ypos', [0]);
 driftspeed = default_arguments(variable_arguments, 'driftspeed', 1);
 gabor_angle = default_arguments(variable_arguments, 'gabor_angle', 180);
-ppd = default_arguments(variable_arguments, 'ppd', estimate_pixels_per_degree(screen_number, 60));
+ppd = default_arguments(variable_arguments, 'ppd', estimate_pixels_per_degree(screen_number, 60, IsfMRI));
 duration = default_arguments(variable_arguments, 'duration', .1);
 baseline_delay = default_arguments(variable_arguments, 'baseline_delay', 0.5);
 decision_delay = default_arguments(variable_arguments, 'decision_delay', 0.30);
@@ -84,7 +86,7 @@ ResponseDotColor=[.25 .25 .25 1];
 % Properties of the gabor
 ifi = Screen('GetFlipInterval', window);
 freq = num_cycles / gabor_dim_pix;
-xpos = xpos*ppd;
+xpos = x_excentricity*ppd;
 ypos = ypos*ppd;
 [xCenter, yCenter] = RectCenter(windowRect);
 xpos = xpos + xCenter;
@@ -114,48 +116,6 @@ if  strcmp(eyetracker,'y')
 end
 vbl=WaitSecs(baseline_delay);
 
-%% Reference Period
-
-% Set the right blend function for drawing the gabors
-Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
-%    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-
-% Batch draw all of the Gabors to screen
-Screen('DrawTextures', window, gabortex, [], allRects, reference_gabor_angle - 90,...
-    [], [], [], [], kPsychDontDoRotation, propertiesMat');
-
-% Change the blend function to draw an antialiased fixation point
-% in the centre of the array
-Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-
-%circle mask
-%Screen('DrawDots', window, [xCenter; yCenter], 166, .5, [], 1);
-radius=250/3;
-rect=[xCenter-radius; yCenter-radius;xCenter+radius; yCenter+radius];
-Screen('FillOval', window, 0.5, rect);
-
-% Draw the fixation point
-Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
-
-
-vbl = Screen('Flip', window);
-timing.refOnset = vbl;
-if  strcmp(eyetracker,'y')
-    Eyelink('Message', 'refOnset');
-end
-vbl=WaitSecs(reference_dur);
-
-%% intermediate Period 
-% Draw the fixation point
-Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
-
-vbl = Screen('Flip', window);
-timing.interOnset = vbl;
-if  strcmp(eyetracker,'y')
-    Eyelink('Message', 'interOnset');
-end
-vbl=WaitSecs(inter_dur);
-
 %% Animation loop
 timing.AnimationOnset = vbl;
 if  strcmp(eyetracker,'y')
@@ -179,12 +139,6 @@ while ~((GetSecs - stimulus_onset) >= (length(contrast_samples)*duration-1*ifi))
     % Change the blend function to draw an antialiased fixation point
     % in the centre of the array
     Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-    
-    %circle mask
-%     Screen('DrawDots', window, [xCenter; yCenter], 500/3, .5, [], 1);
-    radius=250/3;
-    rect=[xCenter-radius; yCenter-radius;xCenter+radius; yCenter+radius];
-    Screen('FillOval', window, 0.5, rect);
 
     % Draw the fixation point
     Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);   
@@ -248,13 +202,13 @@ while (GetSecs-start) < 2
     if keyCode(quit)
         throw(MException('EXP:Quit', 'User request quit'));
     end
-    if keyCode(up_key) || keyCode(down_key)
-        if keyCode(up_key)
+    if keyCode(left_resp) || keyCode(right_resp)
+        if keyCode(left_resp)
             response = 1;
         else
-            response = -1;
+            response = 0;
         end
-        if correct_location == response
+        if is_left_gabor_max == response
             correct = 1;
         else
             correct = 0;
