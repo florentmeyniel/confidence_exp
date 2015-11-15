@@ -2,8 +2,8 @@
 
 left_resp = KbName('LeftArrow');
 right_resp = KbName('RightArrow');
-conf_very_high = KbName('f');
-conf_high = KbName('d');
-conf_low = KbName('s');
+conf_very_high = KbName('r');
+conf_high = KbName('e');
+conf_low = KbName('z');
 conf_very_low = KbName('a');
-quit = KbName('q');
+quit = KbName('ESCAPE');

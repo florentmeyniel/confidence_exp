@@ -19,7 +19,7 @@ eyetracker='n';
 diary('mylog.txt')
 diary on
 
-num_trials = 2; % How many trials?
+num_trials = 10; % How many trials?
 datadir = '../../data';
 
 % QUEST Parameters
@@ -30,9 +30,9 @@ gamma = 0.15;
 
 % Parameters for sampling the contrast + contrast noise
 noise_sigma             = 0.1; % variance of the Gaussian dist from which contrast is sampled.
-reference_contrast      = 0.5; % ???
-threshold_guess         = 0.5; %
-threshold_guess_sigma   = 0.5; %
+reference_contrast      = 0.5; % mean contrast level (the 2 Gabors are above and below this value)
+threshold_guess         = 0.5; % initial guess for the subject's threshold (this is the difference in contrast between patches)
+threshold_guess_sigma   = 0.5; % standard dev. for threshold_guess
 
 % rendering and options
 fullscreen = 0; % 1 for fullscreen, 0 for window (debugging)
@@ -60,7 +60,6 @@ opts = {'sigma', gabor_dim_pix/6,...
 try IsOctave
 catch IsOctave = 0;
 end
-
 
 %% Ask for some subject details and load old QUEST parameters
 initials = input('Initials? ', 's');
@@ -187,9 +186,18 @@ q = QuestCreate(threshold_guess, threshold_guess_sigma, pThreshold, beta, delta,
 q.updatePdf = 1;
 
 % A structure to save results.
-results = struct('response', [], 'is_left_gabor_max', [], 'choice_rt', [], 'correct', [],...
-    'contrast', [], 'contrast_samples', [], ...
-    'confidence', [], 'confidence_rt', [],'timings',[],'trial_options_struct',[]);
+results = struct(...
+            'response', [], ...
+            'is_left_gabor_max', [], ...
+            'choice_rt', [], ...
+            'correct', [], ...
+            'diff_cont', [], ...
+            'contrast_samples1', [], ...
+            'contrast_samples2', [], ...
+            'confidence', [], ...
+            'confidence_rt', [], ...
+            'timings', [], ...
+            'trial_options_struct',[]);
 
 % randomize the position of the most contrasted gabor
 is_left_gabor_max = [ones(1, floor(num_trials/2)), zeros(1, ceil(num_trials/2))];
@@ -294,9 +302,9 @@ for trial = 1:num_trials
             inter_dur=results_last_session(trial).trial_options_struct.inter_dur;
         else %if not repeating last session, choose randmly and/or from quest
             
-            % get the difficulty (which is the difference in contrast
-            % between the two patch, between 0 and 1)
-            diff_cont = min(1, max(0, (QuestQuantile(q, 0.5))));
+            % get the difficulty (the difference in contrast between the 2
+            % patches, which is between 0 and 1)
+            diff_cont = min(1, max(0, (QuestMean(q))));
             
             % compute the mean of the sampling dist. for each Gabor
             % contrast
@@ -321,10 +329,6 @@ for trial = 1:num_trials
                 contrast_samples2 = randn(1,10)*noise_sigma + contrast2;
             end
             
-            % tmp
-            contrast = min(1, max(0, (QuestQuantile(q, 0.5))));
-            contrast_samples = sample_contrast(contrast, noise_sigma, reference_contrast, 1);
-            
             % randomize (or not) the gabor angle
             gabor_angle             = 90;%rand*180;
             reference_gabor_angle   = 90; %rand*180;
@@ -340,7 +344,6 @@ for trial = 1:num_trials
         % Set options that are valid only for this trial.
         trial_options = [opts, {             ...
             'noise_sigma', noise_sigma       ,...
-            'contrast_samples',contrast_samples,...
             'contrast_samples1',contrast_samples1,...
             'contrast_samples2',contrast_samples2,...
             'gabor_angle', gabor_angle      ,...
@@ -355,17 +358,26 @@ for trial = 1:num_trials
             }];
         
         [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect,...
-            screenNumber, is_left_gabor_max, gabortex, gabor_dim_pix, trial_options);
+            screenNumber, is_left_gabor_max(trial), gabortex, gabor_dim_pix, trial_options);
         
         timings{trial} = timing;
         if ~isnan(correct)
-            q = QuestUpdate(q, contrast, correct);
+            q = QuestUpdate(q, diff_cont, correct);
         end
         %convert trial_options to matlab structure
         trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)',1); % octave need DIM (=1 here) to be specified)
-        results(trial) = struct('response', response, 'is_left_gabor_max', is_left_gabor_max(trial), 'choice_rt', rt_choice, 'correct', correct,...
-            'contrast', contrast, 'contrast_samples', contrast_samples,...
-            'confidence', confidence, 'confidence_rt', rt_conf,'timings',timing,'trial_options_struct',trial_options_struct);
+        results(trial) = struct(...
+            'response', response, ...
+            'is_left_gabor_max', is_left_gabor_max(trial), ...
+            'choice_rt', rt_choice, ...
+            'correct', correct, ...
+            'diff_cont', diff_cont, ...
+            'contrast_samples1', contrast_samples1, ...
+            'contrast_samples2', contrast_samples2, ...
+            'confidence', confidence, ...
+            'confidence_rt', rt_conf, ...
+            'timings', timing, ...
+            'trial_options_struct',trial_options_struct);
 end
 
 % Save data

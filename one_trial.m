@@ -51,8 +51,11 @@ function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial
 IsfMRI = default_arguments(variable_arguments, 'IsfMRI', 0); 
 x_excentricity = default_arguments(variable_arguments, 'x_excentricity', nan); 
 
+
 sigma = default_arguments(variable_arguments, 'sigma', gabor_dim_pix/6);
-contrast_samples = default_arguments(variable_arguments, 'contrast_samples', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
+contrast_samples1 = default_arguments(variable_arguments, 'contrast_samples1', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
+contrast_samples2 = default_arguments(variable_arguments, 'contrast_samples2', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]/10.);
+
 num_cycles = default_arguments(variable_arguments, 'num_cycles', 5);
 ypos = default_arguments(variable_arguments, 'ypos', [0]);
 driftspeed = default_arguments(variable_arguments, 'driftspeed', 1);
@@ -86,24 +89,21 @@ ResponseDotColor=[.25 .25 .25 1];
 % Properties of the gabor
 ifi = Screen('GetFlipInterval', window);
 freq = num_cycles / gabor_dim_pix;
-xpos = x_excentricity*ppd;
+xpos1 = -x_excentricity*ppd;
+xpos2 = x_excentricity*ppd;
 ypos = ypos*ppd;
 [xCenter, yCenter] = RectCenter(windowRect);
-xpos = xpos + xCenter;
+xpos1 = xpos1 + xCenter;
+xpos2 = xpos2 + xCenter;
 ypos = ypos + yCenter;
-ngabors = numel(xpos);
 baseRect = [0 0 gabor_dim_pix gabor_dim_pix];
-allRects = nan(4, ngabors);
-for i = 1:ngabors
-    allRects(:, i) = CenterRectOnPointd(baseRect, xpos(i), ypos(i));
-end
+allRects1 = CenterRectOnPointd(baseRect, xpos1, ypos)';
+allRects2 = CenterRectOnPointd(baseRect, xpos2, ypos)';
 degPerSec = 360 * driftspeed;
 degPerFrame =  degPerSec * ifi;
-gaborAngles = gabor_angle*ones(1, ngabors);
-propertiesMat = repmat([NaN, freq, sigma, 0, 1, 0, 0, 0],...
-    ngabors, 1);
-propertiesMat(:, 1) = 0;
-propertiesMat(:, 4) = [reference_contrast];
+gaborAngles = gabor_angle;
+propertiesMat1 = [0, freq, sigma, reference_contrast, 1, 0, 0, 0];
+propertiesMat2 = [0, freq, sigma, reference_contrast, 1, 0, 0, 0];
 
 
 %% Baseline Delay period
@@ -126,15 +126,19 @@ cnt = 1;
 dynamic = [];
 stimulus_onset = nan;
 
-while ~((GetSecs - stimulus_onset) >= (length(contrast_samples)*duration-1*ifi))
+while ~((GetSecs - stimulus_onset) >= (length(contrast_samples1)*duration-1*ifi))
     
     % Set the right blend function for drawing the gabors
     Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
 %    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     
     % Batch draw all of the Gabors to screen
-    Screen('DrawTextures', window, gabortex, [], allRects, gaborAngles - 90,...
-        [], [], [], [], kPsychDontDoRotation, propertiesMat');
+    Screen('DrawTextures', window, gabortex, [], allRects1, gaborAngles - 90,...
+        [], [], [], [], kPsychDontDoRotation, propertiesMat1');
+    
+    Screen('DrawTextures', window, gabortex, [], allRects2, gaborAngles - 90,...
+        [], [], [], [], kPsychDontDoRotation, propertiesMat2');
+    
     
     % Change the blend function to draw an antialiased fixation point
     % in the centre of the array
@@ -154,14 +158,19 @@ while ~((GetSecs - stimulus_onset) >= (length(contrast_samples)*duration-1*ifi))
         start = GetSecs;
     end
     if (elapsed-start) > duration
-        val = contrast_samples(1 + mod(cnt, length(contrast_samples)));
-        propertiesMat(:,4) = val;
+        % Gabor 1 (left)
+        propertiesMat1(:,4) = contrast_samples1(cnt);
+        
+        % Gabor 2 (right)
+        propertiesMat2(:,4) = contrast_samples2(cnt);
+        
         start = GetSecs;
         cnt = cnt+1;
     end
     
     % Increment the phase of our Gabors
-    propertiesMat(:, 1) =  propertiesMat(:, 1) + degPerFrame;
+    propertiesMat1(:, 1) =  propertiesMat1(:, 1) + degPerFrame;
+    propertiesMat2(:, 1) =  propertiesMat2(:, 1) + degPerFrame;
     
 %       %to save an image of one patch
 %     if cnt==1
@@ -208,6 +217,8 @@ while (GetSecs-start) < 2
         else
             response = 0;
         end
+        [is_left_gabor_max, response]
+        
         if is_left_gabor_max == response
             correct = 1;
         else
