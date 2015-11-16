@@ -15,46 +15,15 @@ catch
 end
 
 clear all
-eyetracker='n';
+
 diary('mylog.txt')
 diary on
 
 num_trials = 2; % How many trials?
 datadir = '../../data';
 
-% QUEST Parameters
-pThreshold = .75; % Performance level and other QUEST parameters
-beta = 3.5;
-delta = 0.01;
-gamma = 0.15;
-
-% Parameters for sampling the contrast + contrast noise
-noise_sigma             = 0.1; % variance of the Gaussian dist from which contrast is sampled.
-reference_contrast      = 0.5; % mean contrast level (the 2 Gabors are above and below this value)
-threshold_guess         = 0.5; % initial guess for the subject's threshold (this is the difference in contrast between patches)
-threshold_guess_sigma   = 0.5; % standard dev. for threshold_guess
-
-% rendering and options
-fullscreen = 0; % 1 for fullscreen, 0 for window (debugging)
-IsfMRI = 0; % 1 to wait for the trigger, 0 to initiate on the keyboard
-bg = 0.5; % background color (range: 0-1)
-gamma_lookup_table = '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_Screen_maxLum_CalibPhotometer.mat';
-colText                 = 0.8*[1 1 1];      % text color
-
-
-% Size of the gabor
-gabor_dim_pix = 100;
-
-% Parameters that control appearance of the gabors that are constant over
-% trials
-opts = {'sigma', gabor_dim_pix/6,...
-    'num_cycles', 5,...
-    'duration', .1,...
-    'x_excentricity', 3, ...                        % in visual angle
-    'distance_to_screen', 60, ...                   %
-    'IsfMRI', IsfMRI, ...
-    'ypos', 0,...                                   % in visual angle, Position Gabors in the lower hemifield to get activation in the dorsal pathaway
-    'reference_contrast',reference_contrast};
+% define parameters (stored in a separate script)
+define_parameters
 
 % Define the IsOctave command if run in Matlab
 try IsOctave
@@ -99,7 +68,8 @@ if strcmp(eyetracker,'y')
     sca;
 end
 
-%% Some Setup
+%% ---SETUP SCREEN AND QUEST---
+% #############################
 AssertOpenGL;
 PsychDefaultSetup(2);
 
@@ -137,7 +107,7 @@ else
         [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [], 32, 2, [], [],  kPsychNeed32BPCFloat);
         HideCursor
     else
-        [windowPtr, windowRect] = PsychImaging('OpenWindow', 0, bg, [1 1 1+0.5*w_px 1+0.5*h_px]);
+        [window, windowRect] = PsychImaging('OpenWindow', 0, bg, [1 1 1+0.5*w_px 1+0.5*h_px]);
     end
     w_px = windowRect(3);
     h_px = windowRect(4);
@@ -146,6 +116,13 @@ end
 % get screen center coordinates
 crossY = 1/2*h_px;
 crossX = 1/2*w_px;
+
+% Compute position of the fixation dot
+fix.pos = CenterRectOnPoint([0 0 fix.w fix.w], crossX, crossY);
+fix.posin = CenterRectOnPoint([0 0 fix.in fix.in], crossX, crossY);
+
+% compute size of the gabor in px
+gabor_dim_pix = round(gabor_dim_deg*estimate_pixels_per_degree(window, dist2screen, IsfMRI, ScreenSize));
 
 % Make a back up of the current clut table (to restore it at the
 % end)
@@ -306,26 +283,21 @@ for trial = 1:num_trials
     reference_gabor_angle   = 90; %rand*180;
     
     % temporal jitters
-    baseline_delay          = 1 + rand*0.5;
-    confidence_delay        = 0.5 + rand*1;
-    feedback_delay          = 0.5 + rand*1;
-    reference_dur           = 0.4;
-    inter_dur               = 0.5;
+    baseline_delay          = dur.bl + (rand-0.5)*dur.jit.bl;
+    feedback_delay          = dur.fb + (rand-0.5)*dur.jit.fb;
     
     % Set options that are valid only for this trial.
     trial_options = [opts, {             ...
+        'sigma', gabor_dim_pix/6,...                % frequency of the gabor
         'noise_sigma', noise_sigma       ,...
         'contrast_samples1',contrast_samples1,...
         'contrast_samples2',contrast_samples2,...
         'gabor_angle', gabor_angle      ,...
         'reference_gabor_angle', reference_gabor_angle      ,...
         'baseline_delay', baseline_delay,...
-        'confidence_delay', confidence_delay, ...
         'feedback_delay', feedback_delay,...
-        'reference_dur', reference_dur, ...
-        'inter_dur', inter_dur, ...
-        'rest_delay', 0.5               ,...
         'eyetracker',eyetracker         ,...
+        'fix', fix, ...
         }];
     
     [correct, response, confidence, rt_choice, timing] = one_trial(window, windowRect,...
