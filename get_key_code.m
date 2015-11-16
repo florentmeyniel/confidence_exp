@@ -1,9 +1,9 @@
 % Define the key code
 
-left_resp = KbName('LeftArrow');
-right_resp = KbName('RightArrow');
-conf_very_high = KbName('r');
-conf_high = KbName('e');
-conf_low = KbName('z');
-conf_very_low = KbName('a');
 quit = KbName('ESCAPE');
+
+
+resp_L_conf_H = KbName('a');
+resp_L_conf_L = KbName('z');
+resp_R_conf_L = KbName('e');
+resp_R_conf_H = KbName('r');

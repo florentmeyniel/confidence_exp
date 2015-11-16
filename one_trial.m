@@ -1,4 +1,4 @@
-function [correct, response, confidence, rt_choice, rt_conf, timing] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gabor_dim_pix, variable_arguments)
+function [correct, response, confidence, rt_choice, timing] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gabor_dim_pix, variable_arguments)
 %% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gaborDimPix, variable_arguments)
 %
 % Presents two Gabor patches that vary in contrast over time and then asks
@@ -193,9 +193,6 @@ Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
 vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
 WaitSecs(decision_delay);
 
-%%% Get choice [left_arrow|right_arrow]
-% Draw the fixation pointsca
-
 
 Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
 vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
@@ -211,19 +208,31 @@ while (GetSecs-start) < 2
     if keyCode(quit)
         throw(MException('EXP:Quit', 'User request quit'));
     end
-    if keyCode(left_resp) || keyCode(right_resp)
-        if keyCode(left_resp)
+    if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L) ...
+            || keyCode(resp_R_conf_L) || keyCode(resp_R_conf_H)
+        
+        % get response type: Left / right
+        if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L)
             response = 1;
         else
             response = 0;
         end
-        [is_left_gabor_max, response]
         
+        % estimate if correct or not
         if is_left_gabor_max == response
             correct = 1;
         else
             correct = 0;
         end
+        
+        % get confidence level
+        if keyCode(resp_L_conf_H) || keyCode(resp_R_conf_H)
+            confidence = 1;
+        else
+            confidence = 0;
+        end
+        
+        % get response time
         rt_choice = RT-start;
         key_pressed = true;
         break;
@@ -238,7 +247,6 @@ if ~key_pressed
     response = nan;
     confidence = nan;
     rt_choice = nan;
-    rt_conf = nan;
     return
 end
 
@@ -253,48 +261,6 @@ Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
 
 waitframes = .1/ifi;%100ms
 vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
-
-%% Get confidence response [a|s|d|f]
-key_pressed = false;
-timing.start_confidence_delay = vbl;
-if  strcmp(eyetracker,'y')
-    Eyelink('Message', 'start_confidence_delay');
-end
-
-% waitframes = confidence_delay/ifi;
-% Screen('DrawDots', window, [xCenter; yCenter], 10, ResponseDotColor, [], 1);
-% vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
-% timing.confidence_cue = vbl;
-start = GetSecs;
-rt_conf = nan;
-while (GetSecs-start) < 2
-    [tmp, RT, keyCode] = KbCheck;
-    if keyCode(conf_very_high) || keyCode(conf_high) || keyCode(conf_very_low) || keyCode(conf_low)
-        key_pressed = true;
-        if keyCode(conf_very_high)
-            confidence = 2;
-        elseif keyCode(conf_high)
-            confidence = 1;
-        elseif keyCode(conf_low)
-            confidence = -1;
-        elseif keyCode(conf_very_low)            
-            confidence = -2;
-        end
-        rt_conf = RT-start;
-        break;
-    end
-end
-if ~key_pressed
-    Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
-    vbl = Screen('Flip', window);    
-    wait_period = 0.5 + feedback_delay + rest_delay;
-    WaitSecs(wait_period);
-    confidence = nan;
-    rt_conf = nan;
-    return
-end
-% Screen('DrawDots', window, [xCenter; yCenter], 10, black, [], 1);
-% vbl = Screen('Flip', window);
 
 
 %% Provide Feedback
