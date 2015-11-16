@@ -1,5 +1,5 @@
-function [correct, response, confidence, rt_choice, timing] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gabor_dim_pix, variable_arguments)
-%% function [correct, response, confidence, rt_choice, rt_conf] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gaborDimPix, variable_arguments)
+function [correct, response, confidence, rt_choice, timing, exittask] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gabor_dim_pix, variable_arguments)
+%% function [correct, response, confidence, rt_choice, rt_conf, exittask] = one_trial(window, windowRect, screen_number, is_left_gabor_max, gabortex, gaborDimPix, variable_arguments)
 %
 % Presents two Gabor patches that vary in contrast over time and then asks
 % for which one of the two had higher contrast and the confidence of the
@@ -19,8 +19,8 @@ function [correct, response, confidence, rt_choice, timing] = one_trial(window, 
 % ------------------
 %
 % sigma : sigma of the gaussian for the gabor patch
-% contrast_left : array of michelson contrast values for left gabor
-% contrast_right : array of michelson contrast values for right gabor
+% contrast_samples1 : array of michelson contrast values for left gabor
+% contrast_samples2 : array of michelson contrast values for right gabor
 % num_cycles : spatial frequency of the gabor
 % ypos : array of two y positions for the two gabors
 % driftspeed : how fast the gabors drift (units not clear yet)
@@ -44,35 +44,30 @@ function [correct, response, confidence, rt_choice, timing] = one_trial(window, 
 %  with the current contrastpremult and background settings.
 
 %% Process variable input stuff
-IsfMRI = default_arguments(variable_arguments, 'IsfMRI'); 
-x_excentricity = default_arguments(variable_arguments, 'x_excentricity'); 
+IsfMRI              = default_arguments(variable_arguments, 'IsfMRI'); 
+x_excentricity      = default_arguments(variable_arguments, 'x_excentricity'); 
+sigma               = default_arguments(variable_arguments, 'sigma', gabor_dim_pix/6);
+contrast_samples1   = default_arguments(variable_arguments, 'contrast_samples1');
+contrast_samples2   = default_arguments(variable_arguments, 'contrast_samples2');
+num_cycles          = default_arguments(variable_arguments, 'num_cycles');
+ypos                = default_arguments(variable_arguments, 'ypos');
+driftspeed          = default_arguments(variable_arguments, 'driftspeed');
+gabor_angle         = default_arguments(variable_arguments, 'gabor_angle', 180);
+dist2screen         = default_arguments(variable_arguments, 'dist2screen');
+ScreenSize          = default_arguments(variable_arguments, 'ScreenSize');
+duration            = default_arguments(variable_arguments, 'duration');
+baseline_delay      = default_arguments(variable_arguments, 'baseline_delay');
+decision_delay      = default_arguments(variable_arguments, 'decision_delay');
+feedback_delay      = default_arguments(variable_arguments, 'feedback_delay');
+response_duration   = default_arguments(variable_arguments, 'response_duration');
+delay_before_fb     = default_arguments(variable_arguments, 'delay_before_fb');
+ITI_delay           = default_arguments(variable_arguments, 'ITI_delay');
+eyetracker          = default_arguments(variable_arguments, 'eyetracker');
+bg                  = default_arguments(variable_arguments, 'bg');
+fix                 = default_arguments(variable_arguments, 'fix');
 
-
-sigma = default_arguments(variable_arguments, 'sigma', gabor_dim_pix/6);
-contrast_samples1 = default_arguments(variable_arguments, 'contrast_samples1');
-contrast_samples2 = default_arguments(variable_arguments, 'contrast_samples2');
-
-num_cycles = default_arguments(variable_arguments, 'num_cycles');
-ypos = default_arguments(variable_arguments, 'ypos');
-driftspeed = default_arguments(variable_arguments, 'driftspeed');
-gabor_angle = default_arguments(variable_arguments, 'gabor_angle', 180);
-dist2screen = default_arguments(variable_arguments, 'dist2screen');
-ScreenSize = default_arguments(variable_arguments, 'ScreenSize');
 ppd = estimate_pixels_per_degree(screen_number, dist2screen, IsfMRI, ScreenSize);
-
-duration = default_arguments(variable_arguments, 'duration');
-baseline_delay = default_arguments(variable_arguments, 'baseline_delay');
-decision_delay = default_arguments(variable_arguments, 'decision_delay');
-feedback_delay = default_arguments(variable_arguments, 'feedback_delay');
-response_duration = default_arguments(variable_arguments, 'response_duration');
-delay_before_fb = default_arguments(variable_arguments, 'delay_before_fb');
-
-eyetracker = default_arguments(variable_arguments, 'eyetracker');
-
-reference_contrast = default_arguments(variable_arguments, 'reference_contrast');
-
-bg = default_arguments(variable_arguments, 'bg');
-fix = default_arguments(variable_arguments, 'fix');
+exittask = 0;
 
 %% Setting the stage
 timing = struct();
@@ -80,27 +75,30 @@ timing = struct();
 % get the key code (define in a script)
 get_key_code
 
-black = BlackIndex(screen_number);
-ResponseDotColor=[.25 .25 .25 1];
+
+black               = BlackIndex(screen_number);
+ResponseDotColor    = [.25 .25 .25 1];
+RespCorrect         = [0 0.5 0];
+RespError           = [1 0 0];
 
 % Properties of the gabor
-ifi = Screen('GetFlipInterval', window);
-freq = num_cycles / gabor_dim_pix;
-xpos1 = -x_excentricity*ppd;
-xpos2 = x_excentricity*ppd;
-ypos = ypos*ppd;
-[xCenter, yCenter] = RectCenter(windowRect);
-xpos1 = xpos1 + xCenter;
-xpos2 = xpos2 + xCenter;
-ypos = ypos + yCenter;
-baseRect = [0 0 gabor_dim_pix gabor_dim_pix];
-allRects1 = CenterRectOnPointd(baseRect, xpos1, ypos)';
-allRects2 = CenterRectOnPointd(baseRect, xpos2, ypos)';
-degPerSec = 360 * driftspeed;
-degPerFrame =  degPerSec * ifi;
-gaborAngles = gabor_angle;
-propertiesMat1 = [0, freq, sigma, reference_contrast, 1, 0, 0, 0];
-propertiesMat2 = [0, freq, sigma, reference_contrast, 1, 0, 0, 0];
+ifi                 = Screen('GetFlipInterval', window);
+freq                = num_cycles / gabor_dim_pix;
+xpos1               = -x_excentricity*ppd;
+xpos2               = x_excentricity*ppd;
+ypos                = ypos*ppd;
+[xCenter, yCenter]  = RectCenter(windowRect);
+xpos1               = xpos1 + xCenter;
+xpos2               = xpos2 + xCenter;
+ypos                = ypos + yCenter;
+baseRect            = [0 0 gabor_dim_pix gabor_dim_pix];
+allRects1           = CenterRectOnPointd(baseRect, xpos1, ypos)';
+allRects2           = CenterRectOnPointd(baseRect, xpos2, ypos)';
+degPerSec           = 360 * driftspeed;
+degPerFrame         =  degPerSec * ifi;
+gaborAngles         = gabor_angle;
+propertiesMat1      = [0, freq, sigma, contrast_samples1(1), 1, 0, 0, 0];
+propertiesMat2      = [0, freq, sigma, contrast_samples2(1), 1, 0, 0, 0];
 
 
 %% Baseline Delay period
@@ -121,12 +119,18 @@ timing.AnimationOnset = vbl;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'AnimationOnset');
 end
-start = nan;
-cnt = 1;
-dynamic = [];
-stimulus_onset = nan;
 
-while ~((GetSecs - stimulus_onset) >= (length(contrast_samples1)*duration-1*ifi))
+nImg = numel(contrast_samples1);
+dynamic = zeros(1, nImg);
+for iImg = 1:nImg
+    
+    % Set the contrast of the Gabor for this round
+    propertiesMat1(:,4) = contrast_samples1(iImg); % left
+    propertiesMat2(:,4) = contrast_samples2(iImg); % right
+    
+    % Increment the phase of our Gabors
+    propertiesMat1(:, 1) =  propertiesMat1(:, 1) + degPerFrame;
+    propertiesMat2(:, 1) =  propertiesMat2(:, 1) + degPerFrame;
     
     % Set the right blend function for drawing the gabors
     Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
@@ -138,39 +142,14 @@ while ~((GetSecs - stimulus_onset) >= (length(contrast_samples1)*duration-1*ifi)
     Screen('DrawTextures', window, gabortex, [], allRects2, gaborAngles - 90,...
         [], [], [], [], kPsychDontDoRotation, propertiesMat2');
     
-    
-    % Change the blend function to draw an antialiased fixation point
-    % in the centre of the array
-    % Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-
     % Draw the fixation point
+    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     Screen('FillOval', window, black, fix.pos);
     Screen('FillOval', window, bg, fix.posin);
     
     % Flip our drawing to the screen
-    waitframes = 1;
-    vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);    
-    dynamic = [dynamic vbl];
-    % Change contrast every 100ms
-    elapsed = GetSecs;
-    if isnan(start)
-        stimulus_onset = GetSecs;
-        start = GetSecs;
-    end
-    if (elapsed-start) > duration
-        % Gabor 1 (left)
-        propertiesMat1(:,4) = contrast_samples1(cnt);
-        
-        % Gabor 2 (right)
-        propertiesMat2(:,4) = contrast_samples2(cnt);
-        
-        start = GetSecs;
-        cnt = cnt+1;
-    end
-    
-    % Increment the phase of our Gabors
-    propertiesMat1(:, 1) =  propertiesMat1(:, 1) + degPerFrame;
-    propertiesMat2(:, 1) =  propertiesMat2(:, 1) + degPerFrame;
+    vbl = Screen('Flip', window, vbl + (floor(duration/ifi)-0.5)*ifi);    
+    dynamic(iImg) = vbl;
     
 %       %to save an image of one patch
 %     if cnt==1
@@ -187,7 +166,7 @@ if  strcmp(eyetracker,'y')
     Eyelink('Message', 'animationEnd');
 end
 
-% return to empty screen
+% return to empty screen with fixation dot
 Screen('FillOval', window, black, fix.pos);
 Screen('FillOval', window, bg, fix.posin);
 vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
@@ -211,7 +190,7 @@ key_pressed = false;
 while (GetSecs-start) < response_duration
     [tmp, RT, keyCode] = KbCheck;
     if keyCode(quit)
-        throw(MException('EXP:Quit', 'User request quit'));
+        exittask = 1;
     end
     if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L) ...
             || keyCode(resp_R_conf_L) || keyCode(resp_R_conf_H)
@@ -267,11 +246,11 @@ vbl = Screen('Flip', window);
 
 % display feedback after a delay period
 if correct
-    Screen('FillOval', window, [0 0.5 0], fix.pos);
+    Screen('FillOval', window, RespCorrect, fix.pos);
     Screen('FillOval', window, bg, fix.posin);
 
 else
-    Screen('FillOval', window, [1 0 0], fix.pos);
+    Screen('FillOval', window, RespError, fix.pos);
     Screen('FillOval', window, bg, fix.posin);
 
 end
@@ -283,7 +262,6 @@ end
 
 % remove feedback
 Screen('FillOval', window, black, fix.pos);
-Screen('FillOval', window, bg, fix.posin);
 
 vbl = Screen('Flip', window, vbl + (floor(feedback_delay/ifi)-0.5)*ifi);
 timing.feedback_end = vbl;
@@ -291,6 +269,18 @@ if  strcmp(eyetracker,'y')
     Eyelink('Message', 'feedback_end');
 end
 
+%% ITI
+
+% compute the ITI duration to compensate the RT
+if ~isnan(rt_choice)
+    ITI_delay_RT = ITI_delay + response_duration - rt_choice;
+else
+    ITI_delay_RT = ITI_delay + response_duration;
+end
+
+% wait the ITI duration
+WaitSecs(ITI_delay_RT);
+timing.trial_end = vbl;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'trial_end');
 end

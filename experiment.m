@@ -5,7 +5,6 @@
 
 %% Global parameters.
 
-
 % Initialize random generators (and use a workaround when rng is not
 % re-cognized, e.g. by Octave)
 try
@@ -16,31 +15,34 @@ end
 
 clear all
 
+% open the diary
 diary('mylog.txt')
 diary on
-
-num_trials = 2; % How many trials?
-datadir = '../../data';
 
 % define parameters (stored in a separate script)
 define_parameters
 
 % Define the IsOctave command if run in Matlab
 try IsOctave
-catch IsOctave = 0;
+catch
+    IsOctave = 0;
 end
 
 %% Ask for some subject details and load old QUEST parameters
+
+% get subject name and create a specific directory
 initials = input('Initials? ', 's');
 datadir = fullfile(datadir, initials);
 mkdir(datadir);
+
+% try to load a previous QUEST structure, otherwise initialize it
 quest_file = fullfile(datadir, 'quest_results.mat');
 session_struct = struct('q', [], 'results', [], 'date', datestr(clock));
 results_struct = session_struct;
 session_number=1;
 
+% ask whether to append data if a previous structure is found
 append_data = false;
-repeat_last_session=false;
 if exist(quest_file, 'file') == 2
     if strcmp(input('There is previous data for this subject. Load last QUEST parameters? [y/n] ', 's'), 'y')
         [tmp, results_struct, threshold_guess, threshold_guess_sigma] = load_subject(quest_file);
@@ -48,18 +50,25 @@ if exist(quest_file, 'file') == 2
         session_number=1+length(results_struct);
     end
 end
-
 fprintf('Session number: %d\n', session_number)
 
 eye_filename=sprintf('%s_%03d',initials,session_number);
 fprintf('Eye_filename: %s\n', eye_filename)
 
-fprintf('QUEST Parameters\n----------------\nThreshold Guess: %1.4f\nSigma Guess: %1.4f\n', threshold_guess, threshold_guess_sigma)
+% get number of trial
+if session_number == 1
+    num_trials_this_sess = num_trials(1);
+else
+    num_trials_this_sess = num_trials(2);
+end
+
+% check if everything is correct
+fprintf('QUEST Parameters\n----------------\nThreshold Guess: %1.4f\nSigma Guess: %1.4f\nNTrials: %d \n', ...
+    threshold_guess, threshold_guess_sigma, num_trials_this_sess)
 if ~strcmp(input('OK? [y/n] ', 's'), 'y')
     throw(MException('EXP:Quit', 'User request quit'));
     
 end
-
 
 % Initialize eye
 if strcmp(eyetracker,'y')
@@ -70,10 +79,9 @@ end
 
 %% ---SETUP SCREEN AND QUEST---
 % #############################
+
 AssertOpenGL;
 PsychDefaultSetup(2);
-
-timings = {};
 
 screenNumber = max(Screen('Screens'));
 
@@ -124,8 +132,7 @@ fix.posin = CenterRectOnPoint([0 0 fix.in fix.in], crossX, crossY);
 % compute size of the gabor in px
 gabor_dim_pix = round(gabor_dim_deg*estimate_pixels_per_degree(window, dist2screen, IsfMRI, ScreenSize));
 
-% Make a back up of the current clut table (to restore it at the
-% end)
+% Make a back up of the current clut table (to restore it at the end)
 LoadIdentityClut(window);
 load(gamma_lookup_table)
 Screen('LoadNormalizedGammaTable', window, mygammatable);
@@ -164,10 +171,11 @@ results = struct(...
     'confidence', [], ...
     'timings', [], ...
     'trial_options_struct',[]);
+timings = {};
 
 % randomize the position of the most contrasted gabor
-is_left_gabor_max = [ones(1, floor(num_trials/2)), zeros(1, ceil(num_trials/2))];
-is_left_gabor_max = is_left_gabor_max(randperm(num_trials));
+is_left_gabor_max = [ones(1, floor(num_trials_this_sess/2)), zeros(1, ceil(num_trials_this_sess/2))];
+is_left_gabor_max = is_left_gabor_max(randperm(num_trials_this_sess));
 is_left_gabor_max = logical(is_left_gabor_max);
 
 %% ---WAIT START SIGNAL---
@@ -249,7 +257,11 @@ WaitSecs(0.8);
 %% -- loop over trial ---
 % #######################
 
-for trial = 1:num_trials
+for trial = 1:num_trials_this_sess
+    
+    if exittask == 1;
+        break
+    end
     
     % get the difficulty (the difference in contrast between the 2
     % patches, which is between 0 and 1)
@@ -267,8 +279,8 @@ for trial = 1:num_trials
     end
     
     % Add gaussian noise
-    contrast_samples1 = randn(1,10)*noise_sigma + contrast1;
-    contrast_samples2 = randn(1,10)*noise_sigma + contrast2;
+    contrast_samples1 = randn(1, NumOfFrame)*noise_sigma + contrast1;
+    contrast_samples2 = randn(1, NumOfFrame)*noise_sigma + contrast2;
     
     % check that the Gaussian noise does not reverse the sign of
     % the difference
@@ -285,41 +297,45 @@ for trial = 1:num_trials
     % temporal jitters
     baseline_delay          = dur.bl + (rand-0.5)*dur.jit.bl;
     feedback_delay          = dur.fb + (rand-0.5)*dur.jit.fb;
+    ITI_delay               = dur.ITI + (rand-0.5)*dur.jit.ITI;
     
     % Set options that are valid only for this trial.
     trial_options = [opts, {             ...
-        'sigma', gabor_dim_pix/6,...                % frequency of the gabor
-        'noise_sigma', noise_sigma       ,...
-        'contrast_samples1',contrast_samples1,...
-        'contrast_samples2',contrast_samples2,...
-        'gabor_angle', gabor_angle      ,...
-        'reference_gabor_angle', reference_gabor_angle      ,...
-        'baseline_delay', baseline_delay,...
-        'feedback_delay', feedback_delay,...
-        'eyetracker',eyetracker         ,...
-        'fix', fix, ...
+        'sigma',                    gabor_dim_pix/6, ...                % frequency of the gabor
+        'noise_sigma',              noise_sigma, ...
+        'contrast_samples1',        contrast_samples1, ...
+        'contrast_samples2',        contrast_samples2, ...
+        'gabor_angle',              gabor_angle  ,...
+        'reference_gabor_angle',    reference_gabor_angle ,...
+        'baseline_delay',           baseline_delay, ...
+        'feedback_delay',           feedback_delay, ...
+        'ITI_delay',                ITI_delay, ...
+        'eyetracker',               eyetracker, ...
+        'fix',                      fix, ...
         }];
     
-    [correct, response, confidence, rt_choice, timing] = one_trial(window, windowRect,...
-        screenNumber, is_left_gabor_max(trial), gabortex, gabor_dim_pix, trial_options);
+    [correct, response, confidence, rt_choice, timing, exittask] = ...
+        one_trial(window, windowRect, screenNumber, ...
+        is_left_gabor_max(trial), gabortex, gabor_dim_pix, trial_options);
     
     timings{trial} = timing;
     if ~isnan(correct)
         q = QuestUpdate(q, diff_cont, correct);
     end
+    
     %convert trial_options to matlab structure
     trial_options_struct=cell2struct(trial_options(2:2:end)',trial_options(1:2:end)',1); % octave need DIM (=1 here) to be specified)
     results(trial) = struct(...
         'response', response, ...
-        'is_left_gabor_max', is_left_gabor_max(trial), ...
-        'choice_rt', rt_choice, ...
-        'correct', correct, ...
-        'diff_cont', diff_cont, ...
-        'contrast_samples1', contrast_samples1, ...
-        'contrast_samples2', contrast_samples2, ...
-        'confidence', confidence, ...
-        'timings', timing, ...
-        'trial_options_struct',trial_options_struct);
+        'is_left_gabor_max',    is_left_gabor_max(trial), ...
+        'choice_rt',            rt_choice, ...
+        'correct',              correct, ...
+        'diff_cont',            diff_cont, ...
+        'contrast_samples1',    contrast_samples1, ...
+        'contrast_samples2',    contrast_samples2, ...
+        'confidence',           confidence, ...
+        'timings',              timing, ...
+        'trial_options_struct', trial_options_struct);
 end
 
 % Save data
