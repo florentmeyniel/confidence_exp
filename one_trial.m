@@ -66,9 +66,9 @@ eyetracker          = default_arguments(variable_arguments, 'eyetracker');
 bg                  = default_arguments(variable_arguments, 'bg');
 fix                 = default_arguments(variable_arguments, 'fix');
 
-ppd = estimate_pixels_per_degree(screen_number, dist2screen, IsfMRI, ScreenSize);
+ppd = estimate_pixels_per_degree(screen_number, dist2screen, ScreenSize);
 exittask = 0;
-
+fprintf('\n\n ppd = %5.5f \n\n', ppd)
 %% Setting the stage
 timing = struct();
 
@@ -95,7 +95,7 @@ baseRect            = [0 0 gabor_dim_pix gabor_dim_pix];
 allRects1           = CenterRectOnPointd(baseRect, xpos1, ypos)';
 allRects2           = CenterRectOnPointd(baseRect, xpos2, ypos)';
 degPerSec           = 360 * driftspeed;
-degPerFrame         =  degPerSec * ifi;
+degPerFrame         = degPerSec * ifi;
 gaborAngles         = gabor_angle;
 propertiesMat1      = [0, freq, sigma, contrast_samples1(1), 1, 0, 0, 0];
 propertiesMat2      = [0, freq, sigma, contrast_samples2(1), 1, 0, 0, 0];
@@ -112,34 +112,65 @@ timing.TrialOnset = vbl;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'TrialOnset');
 end
-vbl=WaitSecs(baseline_delay);
+vbl = WaitSecs(baseline_delay);
 
 %% Animation loop
+
 timing.AnimationOnset = vbl;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'AnimationOnset');
 end
 
 nImg = numel(contrast_samples1);
-dynamic = zeros(1, nImg);
-for iImg = 1:nImg
+Gabor_onset = zeros(1, nImg);
+
+% DRAW FIRST IMAGE
+% Set the contrast of the Gabor for this round
+propertiesMat1(4) = contrast_samples1(1); % left
+propertiesMat2(4) = contrast_samples2(1); % right
+
+% Set the right blend function for drawing the gabors
+Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
+
+% Batch draw all of the Gabors to screen
+Screen('DrawTexture', window, gabortex, [], allRects1, gaborAngles - 90,...
+    [], [], [], [], kPsychDontDoRotation, propertiesMat1');
+
+Screen('DrawTexture', window, gabortex, [], allRects2, gaborAngles - 90,...
+    [], [], [], [], kPsychDontDoRotation, propertiesMat2');
+
+% Draw the fixation point
+Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+Screen('FillOval', window, black, fix.pos);
+Screen('FillOval', window, bg, fix.posin);
+
+% Flip our drawing to the screen
+vbl = Screen('Flip', window);
+Gabor_onset(1) = vbl;
+
+% % to save an image of one patch
+% imageArray=Screen('GetImage', window);
+% assignin('base','imageArray',imageArray)
+
+% DRAW OTHER IMAGES
+for iImg = 2:nImg
     
     % Set the contrast of the Gabor for this round
-    propertiesMat1(:,4) = contrast_samples1(iImg); % left
-    propertiesMat2(:,4) = contrast_samples2(iImg); % right
+    propertiesMat1(4) = contrast_samples1(iImg); % left
+    propertiesMat2(4) = contrast_samples2(iImg); % right
     
     % Increment the phase of our Gabors
-    propertiesMat1(:, 1) =  propertiesMat1(:, 1) + degPerFrame;
-    propertiesMat2(:, 1) =  propertiesMat2(:, 1) + degPerFrame;
+    propertiesMat1(1) =  propertiesMat1(1) + degPerFrame;
+    propertiesMat2(1) =  propertiesMat2(1) + degPerFrame;
     
     % Set the right blend function for drawing the gabors
     Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
     
     % Batch draw all of the Gabors to screen
-    Screen('DrawTextures', window, gabortex, [], allRects1, gaborAngles - 90,...
+    Screen('DrawTexture', window, gabortex, [], allRects1, gaborAngles - 90,...
         [], [], [], [], kPsychDontDoRotation, propertiesMat1');
     
-    Screen('DrawTextures', window, gabortex, [], allRects2, gaborAngles - 90,...
+    Screen('DrawTexture', window, gabortex, [], allRects2, gaborAngles - 90,...
         [], [], [], [], kPsychDontDoRotation, propertiesMat2');
     
     % Draw the fixation point
@@ -149,19 +180,12 @@ for iImg = 1:nImg
     
     % Flip our drawing to the screen
     vbl = Screen('Flip', window, vbl + (floor(duration/ifi)-0.5)*ifi);    
-    dynamic(iImg) = vbl;
-    
-%       %to save an image of one patch
-%     if cnt==1
-%         imageArray=Screen('GetImage', window);
-%         assignin('base','imageArray',imageArray)
-%         'Save one image in base'
-%     end
+    Gabor_onset(iImg) = vbl;
 end
 
 % in the centre of the array
 Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-timing.animation = dynamic;
+timing.animation = Gabor_onset;
 if  strcmp(eyetracker,'y')
     Eyelink('Message', 'animationEnd');
 end
@@ -169,8 +193,8 @@ end
 % return to empty screen with fixation dot
 Screen('FillOval', window, black, fix.pos);
 Screen('FillOval', window, bg, fix.posin);
-vbl = Screen('Flip', window, vbl + (1 - 0.5) * ifi);
-
+vbl = Screen('Flip', window, vbl + (floor(duration/ifi)-0.5)*ifi);
+timing.AnimationOffset = vbl;
 
 %% response phase
 

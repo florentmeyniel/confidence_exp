@@ -2,7 +2,7 @@
 
 % QUEST Parameters
 pThreshold              = .75;          % Expected performance level
-threshold_guess         = 0.5;          % initial guess for the subject's threshold (this is the difference in contrast between patches)
+threshold_guess         = 0.25;         % initial guess for the subject's threshold (this is the difference in contrast between patches)
 threshold_guess_sigma   = 0.5;          % standard dev. for threshold_guess
 beta                    = 3.5;
 delta                   = 0.01;
@@ -13,16 +13,15 @@ noise_sigma             = 0.1;          % variance of the Gaussian dist from whi
 reference_contrast      = 0.5;          % mean contrast level (the 2 Gabors are above and below this value)
 
 % rendering and options
-fullscreen              = 0;            % 1 for fullscreen, 0 for window (debugging)
+fullscreen              = 1;            % 1 for fullscreen, 0 for window (debugging)
 IsfMRI                  = 0;            % 1 to wait for the trigger, 0 to initiate on the keyboard
-num_trials              = [45 72];      % How many trials [calib, other]
+num_trials              = [60 72];      % How many trials [1st session, other sessions]
 bg                      = 0.5;          % background color (range: 0-1)
-gamma_lookup_table      = '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_Screen_maxLum_CalibPhotometer.mat';
 datadir                 = '../../data'; % directory to save data
 colText                 = 0.8*[1 1 1];  % text color
 fix.w                   = 10;           % diameter of the fixation dot in pixels
 fix.in                  = 4;            % diameter of the inner circle
-x_excentricity          = 6;            % excentricity in visual angle (deg) of the Gabor wrt. fixation
+x_excentricity          = 5;            % excentricity in visual angle (deg) of the Gabor wrt. fixation
 NumOfFrame              = 10;           % number of frame
 eyetracker              ='n'; 
 dummy_scans             = 4;
@@ -30,23 +29,26 @@ gabor_dim_deg           = 5;            % Size of the gabor in visual angle
 
 if IsfMRI == 1
     dist2screen = 60; % distance to the screen in cm
-    ScreenSize = [100 100]; 
+    ScreenSize = [100 100]; % [w, h] in cm
+    gamma_lookup_table = '';
 else
-    dist2screen = 30;
-    ScreenSize = NaN;
+    gamma_lookup_table = ...
+        '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_Screen_maxLum_CalibPhotometer.mat';
+    dist2screen = 50;      % distance in cm between observer and screen
+    ScreenSize = [30.6 17.4]; % [w, h] in cm
 end
 
-% timing options
-dur.bl                  = 0.5;
+% timing options (in second)
+dur.bl                  = 0.5;          % duration of the baseline cue indicating that a new trial starts
 dur.jit.bl              = 0;
-dur.each_frame          = 0.055;        % put 55ms so that it falls on 50 is the 60Hz refresh rate
-dur.decision            = 1;            % time before answer should be provided.
+dur.each_frame          = 0.105;        % put 105ms so that it falls on 100ms is the 60Hz refresh rate
+dur.decision            = 1;            % waiting time before answer should be provided.
 dur.response            = 2;            % time window for the subject to answer
-dur.bef_fb              = 2;            % time before the fb is displayed
+dur.bef_fb              = [1 2];        % waiting time before the fb is displayed [1st session, other sessions]
 dur.fb                  = 1;            % duration for fb on screen
 dur.jit.fb              = 0;
-dur.ITI                 = 3;            % the actual duraction is dur.ITI+dur.response-RT +/-jit
-dur.jit.ITI             = 1;
+dur.ITI                 = [0 2.5];      % the actual duraction is dur.ITI + dur.response - RT +/-jit. [1st session, other sessions]
+dur.jit.ITI             = [0 1];        % [1st session, other sessions]
 
 
 % Parameters that control appearance of the gabors that are constant over
@@ -60,9 +62,11 @@ opts = {...
     'duration',             dur.each_frame ...                  
     'decision_delay',       dur.decision, ...
     'response_duration',    dur.response, ...
-    'delay_before_fb',      dur.bef_fb, ...
     'bg',                   bg, ...
-    'driftspeed',           1 ...                   % how fast the gabors drift (units not clear yet)
+    'driftspeed',           5 ...                   % how fast the gabors drift (units not clear yet)
     'dist2screen',          dist2screen, ...
     'ScreenSize',           ScreenSize
     };
+
+% drift = 5
+% noise_sigma = 0.1;

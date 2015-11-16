@@ -130,7 +130,7 @@ fix.pos = CenterRectOnPoint([0 0 fix.w fix.w], crossX, crossY);
 fix.posin = CenterRectOnPoint([0 0 fix.in fix.in], crossX, crossY);
 
 % compute size of the gabor in px
-gabor_dim_pix = round(gabor_dim_deg*estimate_pixels_per_degree(window, dist2screen, IsfMRI, ScreenSize));
+gabor_dim_pix = round(gabor_dim_deg*estimate_pixels_per_degree(window, dist2screen, ScreenSize));
 
 % Make a back up of the current clut table (to restore it at the end)
 LoadIdentityClut(window);
@@ -297,7 +297,14 @@ for trial = 1:num_trials_this_sess
     % temporal jitters
     baseline_delay          = dur.bl + (rand-0.5)*dur.jit.bl;
     feedback_delay          = dur.fb + (rand-0.5)*dur.jit.fb;
-    ITI_delay               = dur.ITI + (rand-0.5)*dur.jit.ITI;
+    if session_number == 1 % trick to allow a faster pace during calibration
+        ITI_delay           = dur.ITI(1) + (rand-0.5)*dur.jit.ITI(1);
+        bef_fb              = dur.bef_fb(1);
+    else
+        ITI_delay           = dur.ITI(2) + (rand-0.5)*dur.jit.ITI(2);
+        bef_fb              = dur.bef_fb(2);
+    end
+    
     
     % Set options that are valid only for this trial.
     trial_options = [opts, {             ...
@@ -308,6 +315,7 @@ for trial = 1:num_trials_this_sess
         'gabor_angle',              gabor_angle  ,...
         'reference_gabor_angle',    reference_gabor_angle ,...
         'baseline_delay',           baseline_delay, ...
+        'delay_before_fb',          bef_fb, ...
         'feedback_delay',           feedback_delay, ...
         'ITI_delay',                ITI_delay, ...
         'eyetracker',               eyetracker, ...
