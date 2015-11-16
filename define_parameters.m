@@ -16,16 +16,21 @@ reference_contrast      = 0.5;          % mean contrast level (the 2 Gabors are 
 fullscreen              = 1;            % 1 for fullscreen, 0 for window (debugging)
 IsfMRI                  = 0;            % 1 to wait for the trigger, 0 to initiate on the keyboard
 num_trials              = [60 72];      % How many trials [1st session, other sessions]
-bg                      = 0.5;          % background color (range: 0-1)
+bg                      = 0.35;         % background color (range: 0-1)
 datadir                 = '../../data'; % directory to save data
 colText                 = 0.8*[1 1 1];  % text color
 fix.w                   = 10;           % diameter of the fixation dot in pixels
 fix.in                  = 4;            % diameter of the inner circle
-x_excentricity          = 5;            % excentricity in visual angle (deg) of the Gabor wrt. fixation
+x_excentricity          = 4;            % excentricity in visual angle (deg) of the Gabor wrt. fixation
 NumOfFrame              = 10;           % number of frame
 eyetracker              ='n'; 
 dummy_scans             = 4;
-gabor_dim_deg           = 5;            % Size of the gabor in visual angle
+gabor_dim_deg           = 4;            % Size of the gabor in visual angle
+
+% color of fixation
+ResponseDotColor        = [.5 .5 .5];
+RespCorrect             = [0 0.5 0];
+RespError               = [1 0 0];
 
 if IsfMRI == 1
     dist2screen = 60; % distance to the screen in cm
@@ -65,8 +70,8 @@ opts = {...
     'bg',                   bg, ...
     'driftspeed',           5 ...                   % how fast the gabors drift (units not clear yet)
     'dist2screen',          dist2screen, ...
-    'ScreenSize',           ScreenSize
+    'ScreenSize',           ScreenSize, ...
+    'ResponseDotColor',     ResponseDotColor, ...
+    'RespCorrect',          RespCorrect, ...
+    'RespError',            RespError
     };
-
-% drift = 5
-% noise_sigma = 0.1;

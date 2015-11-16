@@ -65,6 +65,9 @@ ITI_delay           = default_arguments(variable_arguments, 'ITI_delay');
 eyetracker          = default_arguments(variable_arguments, 'eyetracker');
 bg                  = default_arguments(variable_arguments, 'bg');
 fix                 = default_arguments(variable_arguments, 'fix');
+ResponseDotColor    = default_arguments(variable_arguments, 'ResponseDotColor');
+RespCorrect         = default_arguments(variable_arguments, 'RespCorrect');
+RespError           = default_arguments(variable_arguments, 'RespError');
 
 ppd = estimate_pixels_per_degree(screen_number, dist2screen, ScreenSize);
 exittask = 0;
@@ -75,11 +78,7 @@ timing = struct();
 % get the key code (define in a script)
 get_key_code
 
-
 black               = BlackIndex(screen_number);
-ResponseDotColor    = [.25 .25 .25 1];
-RespCorrect         = [0 0.5 0];
-RespError           = [1 0 0];
 
 % Properties of the gabor
 ifi                 = Screen('GetFlipInterval', window);
