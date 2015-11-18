@@ -70,8 +70,8 @@ RespCorrect         = default_arguments(variable_arguments, 'RespCorrect');
 RespError           = default_arguments(variable_arguments, 'RespError');
 
 ppd = estimate_pixels_per_degree(screen_number, dist2screen, ScreenSize);
+
 exittask = 0;
-fprintf('\n\n ppd = %5.5f \n\n', ppd)
 %% Setting the stage
 timing = struct();
 

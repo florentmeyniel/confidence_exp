@@ -130,7 +130,9 @@ fix.pos = CenterRectOnPoint([0 0 fix.w fix.w], crossX, crossY);
 fix.posin = CenterRectOnPoint([0 0 fix.in fix.in], crossX, crossY);
 
 % compute size of the gabor in px
-gabor_dim_pix = round(gabor_dim_deg*estimate_pixels_per_degree(window, dist2screen, ScreenSize));
+ppd = estimate_pixels_per_degree(window, dist2screen, ScreenSize);
+fprintf('\n\n ppd = %5.5f \n\n', ppd)
+gabor_dim_pix = round(gabor_dim_deg*ppd);
 
 % Make a back up of the current clut table (to restore it at the end)
 LoadIdentityClut(window);
@@ -371,13 +373,12 @@ else
 end
 
 % Close screen
-text = 'Fin de l''experience';
+text = 'Fin de la session';
 [w, h] = RectSize(Screen('TextBounds', window, text));
 Screen('DrawText', window, text, round(crossX-w/2), round(crossY-h/2), colText);
 Screen(window,'Flip');
 WaitSecs(0.5);
 sca
-% restore_gamma_table
 
 if  strcmp(eyetracker,'y')
     disp('Receiving eyetracker data')

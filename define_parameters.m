@@ -9,11 +9,11 @@ delta                   = 0.01;
 gamma                   = 0.15;
 
 % Parameters for sampling the contrast + contrast noise
-noise_sigma             = 0.1;          % variance of the Gaussian dist from which contrast is sampled.
+noise_sigma             = 0.1;          % 0.1 variance of the Gaussian dist from which contrast is sampled.
 reference_contrast      = 0.5;          % mean contrast level (the 2 Gabors are above and below this value)
 
 % rendering and options
-fullscreen              = 1;            % 1 for fullscreen, 0 for window (debugging)
+fullscreen              = 0;            % 1 for fullscreen, 0 for window (debugging)
 IsfMRI                  = 0;            % 1 to wait for the trigger, 0 to initiate on the keyboard
 num_trials              = [60 72];      % How many trials [1st session, other sessions]
 bg                      = 0.35;         % background color (range: 0-1)
@@ -33,8 +33,8 @@ RespCorrect             = [0 0.5 0];
 RespError               = [1 0 0];
 
 if IsfMRI == 1
-    dist2screen = 60; % distance to the screen in cm
-    ScreenSize = [100 100]; % [w, h] in cm
+    dist2screen = 89; 		% distance to the screen in cm (10 cm to the mirror + 79 cm to the screen)
+    ScreenSize = [48 48]; 	% [w, h] in cm
     gamma_lookup_table = '';
 else
     gamma_lookup_table = ...
@@ -68,10 +68,28 @@ opts = {...
     'decision_delay',       dur.decision, ...
     'response_duration',    dur.response, ...
     'bg',                   bg, ...
-    'driftspeed',           5 ...                   % how fast the gabors drift (units not clear yet)
+    'driftspeed',           5 ...                   % 5 how fast the gabors drift (units not clear yet)
     'dist2screen',          dist2screen, ...
     'ScreenSize',           ScreenSize, ...
     'ResponseDotColor',     ResponseDotColor, ...
     'RespCorrect',          RespCorrect, ...
     'RespError',            RespError
     };
+
+% Parameters specific to the localize
+alphabet_s = {'a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'q', ...
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'w', 'x', 'c', 'v', 'b', 'n'};
+
+loc.dur.letter      = 0.1;      % duraction (s) of each letter
+loc.dur.isi         = 0.15;     % duraction (s) of isi
+loc.dur.fix         = 0.7;      % duration (s) of the fixation
+loc.fracletter      = 1/10;     % proportion of target (level 's')
+
+loc.patch.on        = 10;       % target duration (s) of patch on screen
+loc.patch.off       = 5;        % target duration (s) of blank
+loc.patch.freq.min  = 4;        % minimum spatial frequency of the checkerboard
+loc.patch.freq.max  = 8;        % maximum spatial frequency of the checkerboard
+loc.patch.ang.min   = 0;        % minimum angle tilt
+loc.patch.ang.max   = 45;       % maximum angle tilt
+
+loc.dur.total       = 6 * 60;   % total duration in seconds
