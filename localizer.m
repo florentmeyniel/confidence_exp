@@ -7,7 +7,7 @@ catch
 end
 
 clear all
-
+tic
 
 % define parameters (stored in a separate script)
 define_parameters
@@ -396,3 +396,4 @@ if IsOctave
 else
     save(fullfile(datadir, filename))
 end
+toc

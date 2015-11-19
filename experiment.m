@@ -14,6 +14,7 @@ catch
 end
 
 clear all
+tic
 
 % open the diary
 diary('mylog.txt')
@@ -299,12 +300,24 @@ for trial = 1:num_trials_this_sess
     contrast_samples1 = randn(1, NumOfFrame)*noise_sigma + contrast1;
     contrast_samples2 = randn(1, NumOfFrame)*noise_sigma + contrast2;
     
+    % clip in the [0 1] range
+    contrast_samples1(contrast_samples1<0) = 0;
+    contrast_samples1(contrast_samples1>1) = 1;
+    contrast_samples2(contrast_samples2<0) = 0;
+    contrast_samples2(contrast_samples2>1) = 1;
+    
     % check that the Gaussian noise does not reverse the sign of
     % the difference
     while sign(mean(contrast_samples1) - mean(contrast_samples2)) ...
             ~= sign(is_left_gabor_max(trial)-0.5)
         contrast_samples1 = randn(1,10)*noise_sigma + contrast1;
         contrast_samples2 = randn(1,10)*noise_sigma + contrast2;
+        
+        % clip in the [0 1] range
+        contrast_samples1(contrast_samples1<0) = 0;
+        contrast_samples1(contrast_samples1>1) = 1;
+        contrast_samples2(contrast_samples2<0) = 0;
+        contrast_samples2(contrast_samples2>1) = 1;
     end
     
     % randomize (or not) the gabor angle
@@ -401,3 +414,4 @@ if  strcmp(eyetracker,'y')
 end
 disp('Done!')
 diary off
+toc
