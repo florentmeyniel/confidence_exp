@@ -70,10 +70,15 @@ else
 end
 
 % get total duration
-tot_dur = num_trials(session_number) * ...
+if session_number == 1
+    n_tmp = 1;
+else
+    n_tmp = 2;
+end
+tot_dur = num_trials(n_tmp) * ...
     (dur.bl + (dur.each_frame-0.005)*NumOfFrame + ...
     dur.decision + dur.response + ...
-    dur.bef_fb(session_number) + dur.fb + dur.ITI(session_number));
+    dur.bef_fb(n_tmp) + dur.fb + dur.ITI(n_tmp));
 tot_dur_min_s_text = sprintf('%2.0f min %2.0f s', floor(tot_dur/60),(tot_dur/60 - floor(tot_dur/60))*60);
 
 % check if everything is correct
@@ -310,8 +315,8 @@ for trial = 1:num_trials_this_sess
     % the difference
     while sign(mean(contrast_samples1) - mean(contrast_samples2)) ...
             ~= sign(is_left_gabor_max(trial)-0.5)
-        contrast_samples1 = randn(1,10)*noise_sigma + contrast1;
-        contrast_samples2 = randn(1,10)*noise_sigma + contrast2;
+        contrast_samples1 = randn(1, NumOfFrame)*noise_sigma + contrast1;
+        contrast_samples2 = randn(1, NumOfFrame)*noise_sigma + contrast2;
         
         % clip in the [0 1] range
         contrast_samples1(contrast_samples1<0) = 0;
@@ -413,5 +418,6 @@ if  strcmp(eyetracker,'y')
     eyelink_end;
 end
 disp('Done!')
-diary off
 toc
+diary off
+
