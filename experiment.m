@@ -30,6 +30,12 @@ end
 
 %% Ask for some subject details and load old QUEST parameters
 
+if IsfMRI == 1
+    fprintf('\n fMRI setting enabled\n')
+else
+    fprintf('\n fMRI setting disabled\n')
+end
+
 % get subject name and create a specific directory
 initials = input('Initials? ', 's');
 datadir = fullfile(datadir, initials);
@@ -62,11 +68,20 @@ else
     num_trials_this_sess = num_trials(2);
 end
 
+% get total duration
+tot_dur = num_trials(session_number) * ...
+    (dur.bl + (dur.each_frame-0.005)*NumOfFrame + ...
+    dur.decision + dur.response + ...
+    dur.bef_fb(session_number) + dur.fb + dur.ITI(session_number));
+tot_dur_min_s_text = sprintf('%2.0f min %2.0f s', floor(tot_dur/60),(tot_dur/60 - floor(tot_dur/60))*60);
+
 % check if everything is correct
-fprintf('QUEST Parameters\n----------------\nThreshold Guess: %1.4f\nSigma Guess: %1.4f\nNTrials: %d \n', ...
-    threshold_guess, threshold_guess_sigma, num_trials_this_sess)
+fprintf('\n N trial: %d \n total dur: %d s (%s) <=> %d TR\n\n', ...
+    num_trials_this_sess, round(tot_dur), tot_dur_min_s_text, ceil(tot_dur/2))
+fprintf('QUEST Parameters\n----------------\nThreshold Guess: %1.4f\nSigma Guess: %1.4f\n', ...
+    threshold_guess, threshold_guess_sigma)
 if ~strcmp(input('OK? [y/n] ', 's'), 'y')
-    throw(MException('EXP:Quit', 'User request quit'));
+    return;
     
 end
 
@@ -190,7 +205,7 @@ text = 'PRET';
 [w, h] = RectSize(Screen('TextBounds', window, text));
 Screen('DrawText', window, text, ceil(crossX-w/2), ceil(crossY-h/2), colText);
 Screen(window,'Flip');
-
+get_key_code
 if IsfMRI
     % The start signal is the scanner trigger
     ScanCount = 0;
@@ -202,7 +217,7 @@ if IsfMRI
             break
         end
         
-        if isKeyDown && keyCode(KbName(key_scanOnset));
+        if isKeyDown && keyCode(key_scanOnset);
             % key_scanOnset is sent when the 1st slice of a new volume in
             % aquiered.
             ScanCount = ScanCount+1;

@@ -1,3 +1,5 @@
+% PARAMETERS FOR THE LUMINANCE / LOCALIZER EXPERIMENT
+
 % Script to define the options and parameters of the experiment.
 
 % QUEST Parameters
@@ -13,10 +15,10 @@ noise_sigma             = 0.1;          % 0.1 variance of the Gaussian dist from
 reference_contrast      = 0.5;          % mean contrast level (the 2 Gabors are above and below this value)
 
 % rendering and options
-fullscreen              = 0;            % 1 for fullscreen, 0 for window (debugging)
-IsfMRI                  = 0;            % 1 to wait for the trigger, 0 to initiate on the keyboard
-num_trials              = [60 72];      % How many trials [1st session, other sessions]
-bg                      = 0.35;         % background color (range: 0-1)
+fullscreen              = 1;            % 1 for fullscreen, 0 for window (debugging)
+IsfMRI                  = 1;            % 1 to wait for the trigger, 0 to initiate on the keyboard
+num_trials              = [65 72];      % How many trials [1st session, other sessions]
+bg                      = 0.5;          % background color (range: 0-1)
 datadir                 = '../../data'; % directory to save data
 colText                 = 0.8*[1 1 1];  % text color
 fix.w                   = 10;           % diameter of the fixation dot in pixels
@@ -28,14 +30,15 @@ dummy_scans             = 4;
 gabor_dim_deg           = 4;            % Size of the gabor in visual angle
 
 % color of fixation
-ResponseDotColor        = [.5 .5 .5];
+ResponseDotColor        = [.75 .75 .75];
 RespCorrect             = [0 0.5 0];
 RespError               = [1 0 0];
 
 if IsfMRI == 1
-    dist2screen = 89; 		% distance to the screen in cm (10 cm to the mirror + 79 cm to the screen)
-    ScreenSize = [48 48]; 	% [w, h] in cm
-    gamma_lookup_table = '';
+    dist2screen = 98; 		% distance to the screen in cm (10 cm to the mirror + 88 cm to the screen)
+    ScreenSize = [42 42]; 	% [w, h] in cm
+    gamma_lookup_table = ...
+	'~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_MRIscreen_VisualCalib_linthd_smoothdark.mat';
 else
     gamma_lookup_table = ...
         '~/PostDoc/manip/LumiConfidence/Stimulation_v2/CalibrateLuminance/data/laptop_Screen_maxLum_CalibPhotometer.mat';
