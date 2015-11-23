@@ -245,7 +245,6 @@ while (GetSecs-start) < response_duration
         break;
     end
 end
-
 if ~key_pressed
     Screen('FillOval', window, black, fix.pos);
     Screen('FillOval', window, bg, fix.posin);
@@ -257,6 +256,9 @@ if ~key_pressed
     response = nan;
     confidence = nan;
     rt_choice = nan;
+    timing.feedback = nan;
+    timing.feedback_end = nan;
+    timing.trial_end = nan;
     return
 end
 
