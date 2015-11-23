@@ -397,3 +397,5 @@ else
     save(fullfile(datadir, filename))
 end
 toc
+fprintf('\nNumber of s: %d\n', num_target)
+

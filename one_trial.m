@@ -159,8 +159,8 @@ for iImg = 2:nImg
     propertiesMat2(4) = contrast_samples2(iImg); % right
     
     % Increment the phase of our Gabors
-    propertiesMat1(1) =  propertiesMat1(1) + degPerFrame;
-    propertiesMat2(1) =  propertiesMat2(1) + degPerFrame;
+    propertiesMat1(1) =  propertiesMat1(1) - degPerFrame;
+    propertiesMat2(1) =  propertiesMat2(1) + degPerFrame;	
     
     % Set the right blend function for drawing the gabors
     Screen('BlendFunction', window, 'GL_ONE', 'GL_ZERO');
@@ -245,6 +245,7 @@ while (GetSecs-start) < response_duration
         break;
     end
 end
+
 if ~key_pressed
     Screen('FillOval', window, black, fix.pos);
     Screen('FillOval', window, bg, fix.posin);
@@ -259,9 +260,8 @@ if ~key_pressed
     return
 end
 
-% turn fixation dot to white when the answer is provided
+% turn fixation dot to a filled circle when the answer is provided
 Screen('FillOval', window, [.75 .75 .75], fix.pos);
-Screen('FillOval', window, bg, fix.posin);
 
 vbl = Screen('Flip', window);
 
