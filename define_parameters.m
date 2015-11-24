@@ -88,7 +88,7 @@ loc.dur.isi         = 0.15;     % duraction (s) of isi
 loc.dur.fix         = 0.7;      % duration (s) of the fixation
 loc.fracletter      = 1/10;     % proportion of target (level 's')
 
-loc.patch.on        = 10;       % target duration (s) of patch on screen
+loc.patch.on        = 15;       % target duration (s) of patch on screen
 loc.patch.off       = 5;        % target duration (s) of blank
 loc.patch.freq.min  = 4;        % minimum spatial frequency of the checkerboard
 loc.patch.freq.max  = 8;        % maximum spatial frequency of the checkerboard

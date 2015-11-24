@@ -332,7 +332,7 @@ for k = 1:loc.numletter
     loc_drawPatchTexture
     t = Screen('Flip', window);
     save_timing_PatchOnset(k) = t;
-    while (GetSecs-t) < loc.dur.isi
+    while (GetSecs-t) < loc.dur.letter
         [isKeyDown, keyTime, keyCode] = KbCheck;
         if isKeyDown && keyCode(KbName('ESCAPE')); % press escape to quit the experiment
             exittask = 1;
