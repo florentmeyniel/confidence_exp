@@ -93,6 +93,6 @@ loc.patch.off       = 5;        % target duration (s) of blank
 loc.patch.freq.min  = 4;        % minimum spatial frequency of the checkerboard
 loc.patch.freq.max  = 8;        % maximum spatial frequency of the checkerboard
 loc.patch.ang.min   = 0;        % minimum angle tilt
-loc.patch.ang.max   = 45;       % maximum angle tilt
+loc.patch.ang.max   = 90;       % maximum angle tilt
 
 loc.dur.total       = 6 * 60;   % total duration in seconds

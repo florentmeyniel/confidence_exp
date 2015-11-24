@@ -236,10 +236,8 @@ for k = 1:2
     
     % append with more randmon sample
     n_missing = minibloc_dur_cycle*LRminibloc_n - nrep*nrep;
-    angl_order_all{k} = [angl_order_all{k}, ...
-        angl_list(ceil(rand(1,n_missing)*nrep))];
-    freq_order_all{k} = [freq_order_all{k}, ...
-        angl_list(ceil(rand(1,n_missing)*nrep))];    
+    angl_order_all{k} = [angl_order_all{k}, ceil(rand(1,n_missing)*nrep)];
+    freq_order_all{k} = [freq_order_all{k}, ceil(rand(1,n_missing)*nrep)];    
 end
 
 %% ---WAIT START SIGNAL---
