@@ -386,7 +386,7 @@ for trial = 1:num_trials_this_sess
 end
 
 % Save data
-WaitSecs(1);
+if exittask == 0; WaitSecs(1); end
 fprintf('Saving data to %s\n', datadir)
 session_struct.q = q;
 session_struct.results = results;
@@ -414,7 +414,7 @@ text = 'Fin de la session';
 [w, h] = RectSize(Screen('TextBounds', window, text));
 Screen('DrawText', window, text, round(crossX-w/2), round(crossY-h/2), colText);
 Screen(window,'Flip');
-WaitSecs(0.5);
+if exittask == 0; WaitSecs(0.5); end
 sca
 
 if  strcmp(eyetracker,'y')

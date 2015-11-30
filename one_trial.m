@@ -211,47 +211,44 @@ start = GetSecs;
 rt_choice = nan;
 key_pressed = false;
 while (GetSecs-start) < response_duration
-    [tmp, RT, keyCode] = KbCheck;
-    if keyCode(quit)
-        exittask = 1;
-    end
-    if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L) ...
-            || keyCode(resp_R_conf_L) || keyCode(resp_R_conf_H)
-        
-        % get response type: Left / right
-        if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L)
-            response = 1;
-        else
-            response = 0;
+    [isKeyDown, RT, keyCode] = KbCheck;
+    if isKeyDown
+        if keyCode(quit)
+            exittask = 1;
+            break
+            
+        elseif keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L) ...
+                || keyCode(resp_R_conf_L) || keyCode(resp_R_conf_H)
+            
+            % get response type: Left / right
+            if keyCode(resp_L_conf_H) || keyCode(resp_L_conf_L)
+                response = 1;
+            else
+                response = 0;
+            end
+            
+            % estimate if correct or not
+            if is_left_gabor_max == response
+                correct = 1;
+            else
+                correct = 0;
+            end
+            
+            % get confidence level
+            if keyCode(resp_L_conf_H) || keyCode(resp_R_conf_H)
+                confidence = 1;
+            else
+                confidence = 0;
+            end
+            
+            % get response time
+            rt_choice = RT-start;
+            key_pressed = true;
+            break;
         end
-        
-        % estimate if correct or not
-        if is_left_gabor_max == response
-            correct = 1;
-        else
-            correct = 0;
-        end
-        
-        % get confidence level
-        if keyCode(resp_L_conf_H) || keyCode(resp_R_conf_H)
-            confidence = 1;
-        else
-            confidence = 0;
-        end
-        
-        % get response time
-        rt_choice = RT-start;
-        key_pressed = true;
-        break;
     end
 end
 if ~key_pressed
-    Screen('FillOval', window, black, fix.pos);
-    Screen('FillOval', window, bg, fix.posin);
-
-    vbl = Screen('Flip', window);
-    wait_period = delay_before_fb + feedback_delay;
-    WaitSecs(wait_period);
     correct = nan;
     response = nan;
     confidence = nan;
@@ -259,6 +256,15 @@ if ~key_pressed
     timing.feedback = nan;
     timing.feedback_end = nan;
     timing.trial_end = nan;
+    
+    if exittask ~= 1;
+        Screen('FillOval', window, black, fix.pos);
+        Screen('FillOval', window, bg, fix.posin);
+        
+        vbl = Screen('Flip', window);
+        wait_period = delay_before_fb + feedback_delay;
+        WaitSecs(wait_period);
+    end
     return
 end
 
