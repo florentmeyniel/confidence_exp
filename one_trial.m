@@ -259,10 +259,9 @@ if ~key_pressed
     
     if exittask ~= 1;
         Screen('FillOval', window, black, fix.pos);
-        Screen('FillOval', window, bg, fix.posin);
         
         vbl = Screen('Flip', window);
-        wait_period = delay_before_fb + feedback_delay;
+        wait_period = delay_before_fb + feedback_delay + ITI_delay;
         WaitSecs(wait_period);
     end
     return
@@ -303,11 +302,7 @@ end
 %% ITI
 
 % compute the ITI duration to compensate the RT
-if ~isnan(rt_choice)
-    ITI_delay_RT = ITI_delay + response_duration - rt_choice;
-else
-    ITI_delay_RT = ITI_delay + response_duration;
-end
+ITI_delay_RT = ITI_delay + response_duration - rt_choice;
 
 % wait the ITI duration
 WaitSecs(ITI_delay_RT);
